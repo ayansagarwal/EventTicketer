@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-7">
+            <div class="card shadow">
+                <div class="card-body p-4">
+                    <h3 class="card-title text-center mb-4">Create Event</h3>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.title.id_for_label }}" class="form-label">{{ form.title.label }}</label>
+                            {{ form.title }}
+                            {% if form.title.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in form.title.errors %}
+                                        <small>{{ error }}</small><br>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.description.id_for_label }}" class="form-label">{{ form.description.label }}</label>
+                            {{ form.description }}
+                            {% if form.description.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in form.description.errors %}
+                                        <small>{{ error }}</small><br>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.date.id_for_label }}" class="form-label">{{ form.date.label }}</label>
+                                {{ form.date }}
+                                {% if form.date.errors %}
+                                    <div class="text-danger mt-1">
+                                        {% for error in form.date.errors %}
+                                            <small>{{ error }}</small><br>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.time.id_for_label }}" class="form-label">{{ form.time.label }}</label>
+                                {{ form.time }}
+                                {% if form.time.errors %}
+                                    <div class="text-danger mt-1">
+                                        {% for error in form.time.errors %}
+                                            <small>{{ error }}</small><br>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.venue.id_for_label }}" class="form-label">{{ form.venue.label }}</label>
+                            {{ form.venue }}
+                            {% if form.venue.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in form.venue.errors %}
+                                        <small>{{ error }}</small><br>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.ticket_price.id_for_label }}" class="form-label">{{ form.ticket_price.label }}</label>
+                                {{ form.ticket_price }}
+                                {% if form.ticket_price.errors %}
+                                    <div class="text-danger mt-1">
+                                        {% for error in form.ticket_price.errors %}
+                                            <small>{{ error }}</small><br>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.ticket_availability.id_for_label }}" class="form-label">{{ form.ticket_availability.label }}</label>
+                                {{ form.ticket_availability }}
+                                {% if form.ticket_availability.errors %}
+                                    <div class="text-danger mt-1">
+                                        {% for error in form.ticket_availability.errors %}
+                                            <small>{{ error }}</small><br>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="form-check">
+                                {{ form.is_published }}
+                                <label class="form-check-label" for="{{ form.is_published.id_for_label }}">
+                                    {{ form.is_published.label }}
+                                </label>
+                            </div>
+                            {% if form.is_published.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in form.is_published.errors %}
+                                        <small>{{ error }}</small><br>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">Create Event</button>
+                        </div>
+                    </form>
+                    
+                    <div class="text-center mt-3">
+                        <p class="mb-0"><a href="{% url 'home.my_events' %}">View My Events</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.form-control {
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    padding: 12px;
+    font-size: 16px;
+}
+
+.form-control:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.btn-primary {
+    border-radius: 8px;
+    padding: 12px;
+    font-weight: 500;
+}
+
+.card {
+    border: none;
+    border-radius: 15px;
+}
+
+.card-body {
+    background-color: #fff;
+}
+
+.form-check {
+    padding: 12px;
+}
+
+.text-danger small {
+    font-size: 14px;
+}
+</style>
+
+{% endblock %}
+
