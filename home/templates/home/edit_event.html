@@ -3,14 +3,14 @@
 
 {% block content %}
 <!-- Hero Section -->
-<header class="masthead bg-create-header text-white text-center py-5 mb-4">
+<header class="masthead bg-edit-header text-white text-center py-5 mb-4">
     <div class="container">
         <div class="row">
             <div class="col-lg-8 mx-auto">
                 <h1 class="display-4 fw-bold mb-3" style="text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);">
-                    <i class="fas fa-plus-circle me-3"></i>Create Event
+                    <i class="fas fa-edit me-3"></i>Edit Event
                 </h1>
-                <p class="lead">Share your event with the world</p>
+                <p class="lead">Update your event details</p>
             </div>
         </div>
     </div>
@@ -19,8 +19,13 @@
 <div class="container mb-5">
     <div class="row justify-content-center">
         <div class="col-md-9 col-lg-8">
-            <div class="card shadow-lg border-0 create-form-card">
+            <div class="card shadow-lg border-0 edit-form-card">
                 <div class="card-body p-5">
+                    
+                    <div class="alert alert-info shadow-sm border-0 rounded-3 mb-4" role="alert">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Tip:</strong> You can change the "Publish Event" checkbox to publish or unpublish this event.
+                    </div>
                     
                     <form method="post">
                         {% csrf_token %}
@@ -131,17 +136,19 @@
 
                         <div class="d-grid mt-4">
                             <button type="submit" class="btn btn-primary btn-lg rounded-pill px-4">
-                                <i class="fas fa-check me-2"></i>Create Event
+                                <i class="fas fa-save me-2"></i>Save Changes
                             </button>
                         </div>
                     </form>
                     
                     <div class="text-center mt-4">
-                        <p class="mb-0">
-                            <a href="{% url 'home.my_events' %}" class="text-decoration-none">
-                                <i class="fas fa-calendar me-1"></i>View My Events
-                            </a>
-                        </p>
+                        <a href="{% url 'home.event_detail' event.id %}" class="text-decoration-none me-3">
+                            <i class="fas fa-arrow-left me-1"></i>Back to Event
+                        </a>
+                        <span class="text-muted">|</span>
+                        <a href="{% url 'home.my_events' %}" class="text-decoration-none ms-3">
+                            <i class="fas fa-calendar me-1"></i>My Events
+                        </a>
                     </div>
                 </div>
             </div>
@@ -150,18 +157,18 @@
 </div>
 
 <style>
-.bg-create-header {
+.bg-edit-header {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     background-attachment: fixed;
     background-size: cover;
     border-radius: 0 0 20px 20px;
 }
 
-.bg-create-header h1 {
+.bg-edit-header h1 {
     animation: fadeInDown 0.6s ease-out;
 }
 
-.bg-create-header .lead {
+.bg-edit-header .lead {
     animation: fadeInUp 0.6s ease-out 0.2s both;
     opacity: 0.95;
 }
@@ -188,7 +195,7 @@
     }
 }
 
-.create-form-card {
+.edit-form-card {
     border-radius: 20px;
     background: linear-gradient(to bottom, #ffffff 0%, #f8f9fa 100%);
     animation: fadeIn 0.6s ease-out;
@@ -267,16 +274,30 @@
     font-size: 14px;
 }
 
+.alert-info {
+    background-color: #e3f2fd;
+    border-left: 4px solid #2196F3;
+    color: #0d47a1;
+}
+
+a {
+    color: #667eea;
+    transition: color 0.3s ease;
+}
+
+a:hover {
+    color: #764ba2;
+}
+
 @media (max-width: 768px) {
-    .create-form-card .card-body {
+    .edit-form-card .card-body {
         padding: 2rem !important;
     }
     
-    .bg-create-header h1 {
+    .bg-edit-header h1 {
         font-size: 2rem;
     }
 }
 </style>
 
 {% endblock %}
-

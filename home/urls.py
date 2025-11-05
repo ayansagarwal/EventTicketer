@@ -5,5 +5,10 @@ urlpatterns = [
     path('about', views.about, name='home.about'),
     path('events/create/', views.create_event, name='home.create_event'),
     path('events/<int:event_id>/', views.event_detail, name='home.event_detail'),
+    path('events/<int:event_id>/edit/', views.edit_event, name='home.edit_event'),
     path('events/my-events/', views.my_events, name='home.my_events'),
+    # API endpoint for event search/filtering with JSON response
+    path('events/api/', views.events_api, name='home.events_api'),
+    # New events search page with filtering UI
+    path('events/', views.events_search, name='home.events_search'),
 ]

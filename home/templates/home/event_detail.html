@@ -2,17 +2,34 @@
 {% load static %}
 
 {% block content %}
-<div class="container mt-5 mb-5">
+<!-- Hero Section -->
+<header class="masthead bg-event-detail-header text-white text-center py-4 mb-4">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-10 mx-auto">
+                <h1 class="display-5 fw-bold mb-2" style="text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);">
+                    {{ event.title }}
+                </h1>
+                <p class="lead mb-0">
+                    <i class="fas fa-user me-2"></i>{{ event.organizer.get_full_name|default:event.organizer.username }}
+                </p>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="container mb-5">
     <div class="row justify-content-center">
-        <div class="col-md-10 col-lg-8">
-            <div class="card shadow">
-                <div class="card-body p-4">
-                    <h2 class="card-title mb-3">{{ event.title }}</h2>
+        <div class="col-md-10 col-lg-9">
+            <div class="card shadow-lg border-0 event-detail-card">
+                <div class="card-body p-5">
                     
                     <div class="event-details">
                         <div class="detail-section mb-4">
-                            <h5 class="text-muted mb-2">Description</h5>
-                            <p class="lead">{{ event.description }}</p>
+                            <h5 class="fw-bold mb-3 text-primary">
+                                <i class="fas fa-align-left me-2"></i>Description
+                            </h5>
+                            <p class="lead text-muted">{{ event.description }}</p>
                         </div>
 
                         <div class="row mb-4">
@@ -60,29 +77,36 @@
                         </div>
 
                         {% if event.ticket_availability > 0 %}
-                        <div class="d-grid gap-2">
-                            <a href="#" class="btn btn-primary btn-lg">
+                        <div class="d-grid gap-2 mt-4">
+                            <a href="#" class="btn btn-primary btn-lg rounded-pill px-4">
                                 <i class="fas fa-shopping-cart me-2"></i>Book Tickets
                             </a>
                         </div>
                         {% else %}
-                        <div class="alert alert-warning text-center" role="alert">
+                        <div class="alert alert-warning text-center shadow-sm border-0 rounded-3 mt-4" role="alert">
                             <i class="fas fa-exclamation-triangle me-2"></i>
-                            Tickets are sold out for this event
+                            <strong>Tickets are sold out for this event</strong>
                         </div>
                         {% endif %}
 
                         {% if user.is_authenticated and event.organizer == user %}
-                        <div class="mt-3 text-center">
-                            <small class="text-muted">You are the organizer of this event</small>
+                        <div class="mt-4 pt-3 border-top">
+                            <div class="d-grid gap-2">
+                                <a href="{% url 'home.edit_event' event.id %}" class="btn btn-warning btn-lg rounded-pill px-4">
+                                    <i class="fas fa-edit me-2"></i>Edit Event
+                                </a>
+                            </div>
+                            <div class="mt-2 text-center">
+                                <small class="text-muted">You are the organizer of this event</small>
+                            </div>
                         </div>
                         {% endif %}
                     </div>
                 </div>
             </div>
             
-            <div class="text-center mt-3">
-                <a href="{% url 'home.index' %}" class="btn btn-secondary">
+            <div class="text-center mt-4">
+                <a href="{% url 'home.index' %}" class="btn btn-outline-secondary btn-lg rounded-pill px-4">
                     <i class="fas fa-arrow-left me-2"></i>Back to Events
                 </a>
             </div>
@@ -91,34 +115,150 @@
 </div>
 
 <style>
-.card {
-    border: none;
-    border-radius: 15px;
+.bg-event-detail-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-attachment: fixed;
+    background-size: cover;
+    border-radius: 0 0 20px 20px;
+}
+
+.bg-event-detail-header h1 {
+    animation: fadeInDown 0.6s ease-out;
+}
+
+.bg-event-detail-header .lead {
+    animation: fadeInUp 0.6s ease-out 0.2s both;
+    opacity: 0.95;
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 0.95;
+        transform: translateY(0);
+    }
+}
+
+.event-detail-card {
+    border-radius: 20px;
+    background: linear-gradient(to bottom, #ffffff 0%, #f8f9fa 100%);
+    animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .detail-section {
-    border-bottom: 1px solid #e9ecef;
-    padding-bottom: 1rem;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 1.5rem;
+    margin-bottom: 1.5rem;
 }
 
 .detail-section:last-of-type {
     border-bottom: none;
+    margin-bottom: 0;
 }
 
 .detail-box {
-    padding: 10px;
-    background-color: #f8f9fa;
-    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    background: linear-gradient(to right, #f8f9fa 0%, #ffffff 100%);
+    border-radius: 12px;
+    border-left: 4px solid #667eea;
+    transition: all 0.3s ease;
+}
+
+.detail-box:hover {
+    transform: translateX(5px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.detail-box i {
+    font-size: 1.1rem;
+}
+
+.detail-box strong {
+    color: #495057;
+    font-weight: 600;
 }
 
 .btn-primary {
-    border-radius: 8px;
-    padding: 12px;
-    font-weight: 500;
+    border-radius: 50px;
+    padding: 14px 30px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
 }
 
-.btn-secondary {
-    border-radius: 8px;
+.btn-primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-outline-secondary {
+    border-radius: 50px;
+    border-width: 2px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-secondary:hover {
+    transform: translateY(-2px);
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-warning {
+    border-radius: 50px;
+    padding: 14px 30px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+    border: none;
+    color: #212529;
+}
+
+.btn-warning:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(255, 193, 7, 0.4);
+    color: #212529;
+}
+
+.alert-warning {
+    border-left: 4px solid #ffc107;
+    border-radius: 12px;
+}
+
+@media (max-width: 768px) {
+    .event-detail-card .card-body {
+        padding: 2rem !important;
+    }
+    
+    .bg-event-detail-header h1 {
+        font-size: 1.75rem;
+    }
 }
 </style>
 

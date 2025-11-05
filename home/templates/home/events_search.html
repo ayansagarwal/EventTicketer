@@ -1,0 +1,616 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- Hero Section with Enhanced Heading -->
+<header class="masthead bg-search-header text-white text-center py-5 mb-4">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto">
+                <h1 class="display-4 fw-bold mb-3">
+                    <i class="fas fa-search me-3"></i>Search Events
+                </h1>
+                <p class="lead">Find your perfect event by name, location, or price</p>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="container mb-5">
+    <div class="row">
+        <div class="col-12">
+            <!-- Search and Filter Form -->
+            <div class="card shadow-lg border-0 mb-4 search-filter-card">
+                <div class="card-body p-4">
+                    <form id="searchForm" class="row g-3">
+                        <!-- Name Search -->
+                        <div class="col-md-4">
+                            <label for="nameFilter" class="form-label">
+                                <i class="fas fa-search me-1"></i>Search by Name
+                            </label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="nameFilter" 
+                                   name="name"
+                                   placeholder="Enter event name...">
+                        </div>
+                        
+                        <!-- Location Filter -->
+                        <div class="col-md-4">
+                            <label for="locationFilter" class="form-label">
+                                <i class="fas fa-map-marker-alt me-1"></i>Location
+                            </label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="locationFilter" 
+                                   name="location"
+                                   placeholder="Enter location/venue...">
+                        </div>
+                        
+                        <!-- Price Range -->
+                        <div class="col-md-4">
+                            <label class="form-label">
+                                <i class="fas fa-dollar-sign me-1"></i>Price Range
+                            </label>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="priceMin" 
+                                           name="price_min"
+                                           placeholder="Min" 
+                                           step="0.01" 
+                                           min="0">
+                                </div>
+                                <div class="col-6">
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="priceMax" 
+                                           name="price_max"
+                                           placeholder="Max" 
+                                           step="0.01" 
+                                           min="0">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="col-12 pt-2">
+                            <button type="submit" class="btn btn-primary btn-lg px-4">
+                                <i class="fas fa-search me-2"></i>Search Events
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-lg px-4 ms-2" id="clearFilters">
+                                <i class="fas fa-times me-2"></i>Clear Filters
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Loading Indicator -->
+            <div id="loadingIndicator" class="text-center py-5" style="display: none;">
+                <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="text-muted fw-medium">Searching for events...</p>
+            </div>
+            
+            <!-- Error Message -->
+            <div id="errorMessage" class="alert alert-danger shadow-sm border-0 rounded-3" style="display: none;" role="alert">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                <strong>Error:</strong> <span id="errorText"></span>
+            </div>
+            
+            <!-- Events Results -->
+            <div id="eventsResults">
+                <!-- Events will be dynamically loaded here -->
+            </div>
+            
+            <!-- Pagination -->
+            <div id="paginationContainer" class="mt-4">
+                <!-- Pagination controls will be dynamically added here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Hero section with gradient background */
+.bg-search-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-attachment: fixed;
+    background-size: cover;
+    border-radius: 0 0 20px 20px;
+    margin-bottom: 2rem;
+}
+
+.bg-search-header h1 {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+    animation: fadeInDown 0.6s ease-out;
+}
+
+.bg-search-header .lead {
+    opacity: 0.95;
+    animation: fadeInUp 0.6s ease-out 0.2s both;
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 0.95;
+        transform: translateY(0);
+    }
+}
+
+/* Enhanced search filter card */
+.search-filter-card {
+    border-radius: 15px;
+    background: linear-gradient(to bottom, #ffffff 0%, #f8f9fa 100%);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.search-filter-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
+}
+
+.search-filter-card .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.search-filter-card .form-label i {
+    color: #667eea;
+}
+
+/* Enhanced form controls */
+.form-control {
+    border-radius: 10px;
+    border: 2px solid #e9ecef;
+    padding: 12px 16px;
+    font-size: 15px;
+    transition: all 0.3s ease;
+    background-color: #ffffff;
+}
+
+.form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    background-color: #ffffff;
+    transform: translateY(-1px);
+}
+
+.form-control::placeholder {
+    color: #adb5bd;
+}
+
+/* Enhanced buttons */
+.btn-primary {
+    border-radius: 10px;
+    padding: 12px 30px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn-outline-secondary {
+    border-radius: 10px;
+    padding: 12px 30px;
+    font-weight: 600;
+    border-width: 2px;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-secondary:hover {
+    transform: translateY(-2px);
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+/* Enhanced event cards */
+.event-card {
+    border: none;
+    border-radius: 15px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+
+.event-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.event-card .card-body {
+    padding: 1.5rem;
+}
+
+.event-card .card-title {
+    color: #212529;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    font-size: 1.25rem;
+}
+
+.event-info {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.event-info i {
+    color: #667eea;
+    width: 18px;
+}
+
+/* Enhanced loading indicator */
+#loadingIndicator {
+    padding: 4rem 0;
+}
+
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+    border-width: 0.3em;
+}
+
+/* Enhanced pagination */
+.pagination .page-link {
+    border-radius: 8px;
+    margin: 0 3px;
+    border: 2px solid #e9ecef;
+    color: #667eea;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.pagination .page-link:hover {
+    background-color: #667eea;
+    border-color: #667eea;
+    color: white;
+    transform: translateY(-2px);
+}
+
+.pagination .page-item.active .page-link {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: #667eea;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+/* Empty state styling */
+.text-center.py-5 {
+    padding: 4rem 2rem !important;
+}
+
+.text-center.py-5 i {
+    opacity: 0.5;
+}
+
+/* Results section enhancement */
+#eventsResults {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .bg-search-header h1 {
+        font-size: 2rem;
+    }
+    
+    .bg-search-header .lead {
+        font-size: 1rem;
+    }
+    
+    .search-filter-card .card-body {
+        padding: 1.5rem;
+    }
+}
+</style>
+
+<script>
+// Global state
+let currentPage = 1;
+let isLoading = false;
+
+/**
+ * Fetch events from the API with current filter values
+ */
+function fetchEvents(page = 1) {
+    // Prevent multiple simultaneous requests
+    if (isLoading) return;
+    isLoading = true;
+    
+    // Show loading indicator
+    document.getElementById('loadingIndicator').style.display = 'block';
+    document.getElementById('errorMessage').style.display = 'none';
+    document.getElementById('eventsResults').innerHTML = '';
+    document.getElementById('paginationContainer').innerHTML = '';
+    
+    // Build query parameters from form
+    const formData = new FormData(document.getElementById('searchForm'));
+    const params = new URLSearchParams();
+    
+    // Add filter parameters
+    const name = document.getElementById('nameFilter').value.trim();
+    const location = document.getElementById('locationFilter').value.trim();
+    const priceMin = document.getElementById('priceMin').value.trim();
+    const priceMax = document.getElementById('priceMax').value.trim();
+    
+    if (name) params.append('name', name);
+    if (location) params.append('location', location);
+    if (priceMin) params.append('price_min', priceMin);
+    if (priceMax) params.append('price_max', priceMax);
+    
+    // Add pagination
+    params.append('page', page);
+    params.append('page_size', '12');
+    
+    // Fetch from API
+    const apiUrl = '{% url "home.events_api" %}';
+    fetch(`${apiUrl}?${params.toString()}`)
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.error || 'Failed to fetch events');
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            isLoading = false;
+            document.getElementById('loadingIndicator').style.display = 'none';
+            currentPage = page;
+            
+            // Display events
+            displayEvents(data.results);
+            
+            // Display pagination
+            displayPagination(data);
+        })
+        .catch(error => {
+            isLoading = false;
+            document.getElementById('loadingIndicator').style.display = 'none';
+            document.getElementById('errorText').textContent = error.message;
+            document.getElementById('errorMessage').style.display = 'block';
+            console.error('Error fetching events:', error);
+        });
+}
+
+/**
+ * Display events in the results container
+ */
+function displayEvents(events) {
+    const resultsContainer = document.getElementById('eventsResults');
+    
+    if (events.length === 0) {
+        resultsContainer.innerHTML = `
+            <div class="text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-calendar-times fa-4x text-muted mb-3" style="opacity: 0.5;"></i>
+                </div>
+                <h4 class="text-muted mb-2 fw-semibold">No Events Found</h4>
+                <p class="text-muted">Try adjusting your search filters or clear them to see all events.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="row">';
+    
+    events.forEach(event => {
+        // Format date and time
+        const eventDate = new Date(event.date);
+        const formattedDate = eventDate.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+        });
+        
+        const timeStr = event.time || '';
+        const formattedTime = timeStr ? formatTime(timeStr) : '';
+        
+        // Truncate description
+        const description = event.description.length > 100 
+            ? event.description.substring(0, 100) + '...' 
+            : event.description;
+        
+        html += `
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100 shadow-sm event-card">
+                    <div class="card-body">
+                        <h5 class="card-title">${escapeHtml(event.title)}</h5>
+                        <p class="card-text text-muted">${escapeHtml(description)}</p>
+                        
+                        <div class="event-info mb-2">
+                            <small>
+                                <i class="fas fa-calendar-alt me-1"></i>
+                                ${formattedDate}
+                            </small>
+                        </div>
+                        
+                        ${formattedTime ? `
+                        <div class="event-info mb-2">
+                            <small>
+                                <i class="fas fa-clock me-1"></i>
+                                ${formattedTime}
+                            </small>
+                        </div>
+                        ` : ''}
+                        
+                        <div class="event-info mb-2">
+                            <small>
+                                <i class="fas fa-map-marker-alt me-1"></i>
+                                ${escapeHtml(event.venue)}
+                            </small>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                            <div>
+                                <span class="text-muted small d-block mb-1">Price</span>
+                                <span class="text-success fw-bold fs-5">$${parseFloat(event.ticket_price).toFixed(2)}</span>
+                            </div>
+                            <a href="/events/${event.id}/" class="btn btn-sm btn-primary rounded-pill px-3">
+                                View Details <i class="fas fa-arrow-right ms-1"></i>
+                            </a>
+                        </div>
+                        
+                        ${event.ticket_availability === 0 ? `
+                        <div class="mt-2">
+                            <span class="badge bg-warning">Sold Out</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    resultsContainer.innerHTML = html;
+}
+
+/**
+ * Display pagination controls
+ */
+function displayPagination(data) {
+    const paginationContainer = document.getElementById('paginationContainer');
+    
+    if (data.total_pages <= 1) {
+        paginationContainer.innerHTML = '';
+        return;
+    }
+    
+    let html = '<nav><ul class="pagination justify-content-center">';
+    
+    // Previous button
+    html += `
+        <li class="page-item ${!data.has_previous ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="event.preventDefault(); if (${data.has_previous}) fetchEvents(${data.previous_page}); return false;">
+                Previous
+            </a>
+        </li>
+    `;
+    
+    // Page numbers
+    const startPage = Math.max(1, data.page - 2);
+    const endPage = Math.min(data.total_pages, data.page + 2);
+    
+    if (startPage > 1) {
+        html += `<li class="page-item"><a class="page-link" href="#" onclick="event.preventDefault(); fetchEvents(1); return false;">1</a></li>`;
+        if (startPage > 2) {
+            html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+        html += `
+            <li class="page-item ${i === data.page ? 'active' : ''}">
+                <a class="page-link" href="#" onclick="event.preventDefault(); fetchEvents(${i}); return false;">${i}</a>
+            </li>
+        `;
+    }
+    
+    if (endPage < data.total_pages) {
+        if (endPage < data.total_pages - 1) {
+            html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+        html += `<li class="page-item"><a class="page-link" href="#" onclick="event.preventDefault(); fetchEvents(${data.total_pages}); return false;">${data.total_pages}</a></li>`;
+    }
+    
+    // Next button
+    html += `
+        <li class="page-item ${!data.has_next ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="event.preventDefault(); if (${data.has_next}) fetchEvents(${data.next_page}); return false;">
+                Next
+            </a>
+        </li>
+    `;
+    
+    html += '</ul></nav>';
+    html += `<div class="text-center mt-3">
+        <p class="text-muted mb-0">
+            <i class="fas fa-info-circle me-1"></i>
+            Showing ${((data.page - 1) * data.page_size) + 1} - ${Math.min(data.page * data.page_size, data.count)} of ${data.count} event${data.count !== 1 ? 's' : ''}
+        </p>
+    </div>`;
+    
+    paginationContainer.innerHTML = html;
+}
+
+/**
+ * Utility function to escape HTML and prevent XSS
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/**
+ * Format time string (HH:MM:SS) to readable format
+ */
+function formatTime(timeStr) {
+    const parts = timeStr.split(':');
+    if (parts.length >= 2) {
+        const hours = parseInt(parts[0]);
+        const minutes = parts[1];
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        const displayHours = hours % 12 || 12;
+        return `${displayHours}:${minutes} ${ampm}`;
+    }
+    return timeStr;
+}
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Form submission
+    document.getElementById('searchForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        fetchEvents(1);
+    });
+    
+    // Clear filters button
+    document.getElementById('clearFilters').addEventListener('click', function() {
+        document.getElementById('nameFilter').value = '';
+        document.getElementById('locationFilter').value = '';
+        document.getElementById('priceMin').value = '';
+        document.getElementById('priceMax').value = '';
+        fetchEvents(1);
+    });
+    
+    // Initial load - fetch all events
+    fetchEvents(1);
+});
+</script>
+{% endblock %}
