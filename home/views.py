@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.core.paginator import Paginator
 from decimal import Decimal, InvalidOperation
-from .models import Event
+from .models import Event, Order
 from .forms import EventForm
 
 def index(request):
@@ -100,6 +100,57 @@ def event_detail(request, event_id):
     })
 
 @login_required
+def buy_ticket(request, event_id):
+    """
+    Create an order for the logged-in attendee and decrement availability.
+    """
+    event = get_object_or_404(Event, id=event_id)
+
+    # Only attendees can buy tickets; organizers cannot buy for their own event
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'attendee':
+        messages.error(request, 'Only Event Attendees can purchase tickets.')
+        return redirect('home.event_detail', event_id=event.id)
+
+    if request.method != 'POST':
+        return redirect('home.event_detail', event_id=event.id)
+
+    # Validate quantity
+    qty_str = request.POST.get('quantity', '1').strip()
+    try:
+        quantity = int(qty_str)
+    except ValueError:
+        messages.error(request, 'Invalid quantity.')
+        return redirect('home.event_detail', event_id=event.id)
+
+    if quantity < 1:
+        messages.error(request, 'Quantity must be at least 1.')
+        return redirect('home.event_detail', event_id=event.id)
+
+    if event.ticket_availability <= 0:
+        messages.error(request, 'Tickets are sold out for this event.')
+        return redirect('home.event_detail', event_id=event.id)
+
+    if quantity > event.ticket_availability:
+        messages.error(request, f'Only {event.ticket_availability} ticket(s) left for this event.')
+        return redirect('home.event_detail', event_id=event.id)
+
+    # Create order
+    order = Order.objects.create(
+        attendee=request.user,
+        event=event,
+        quantity=quantity,
+        unit_price=event.ticket_price,
+        status='paid'
+    )
+
+    # Decrement availability
+    event.ticket_availability -= quantity
+    event.save(update_fields=['ticket_availability'])
+
+    messages.success(request, f'Order #{order.id} placed for {quantity} ticket(s).')
+    return redirect('home.my_orders')
+
+@login_required
 def my_events(request):
     if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'event_organizer':
         messages.error(request, 'Only Event Organizers can view this page.')
@@ -110,6 +161,25 @@ def my_events(request):
     return render(request, 'home/my_events.html', {
         'template_data': template_data,
         'events': events
+    })
+
+@login_required
+def my_orders(request):
+    """
+    Show a list of orders for the logged-in attendee so they can track
+    what they have purchased and their expenses.
+    """
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'attendee':
+        messages.error(request, 'Only Event Attendees can view their orders.')
+        return redirect('home.index')
+
+    orders = Order.objects.filter(attendee=request.user).select_related('event').order_by('-created_at')
+    template_data = {'title': 'My Orders'}
+    total_spent = sum([o.total_price for o in orders])
+    return render(request, 'home/my_orders.html', {
+        'template_data': template_data,
+        'orders': orders,
+        'total_spent': total_spent,
     })
 
 @login_required

@@ -29,6 +29,8 @@
               {% if user.userprofile.user_type == 'event_organizer' %}
                 <a class="nav-link" href="{% url 'home.create_event' %}">Create Event</a>
                 <a class="nav-link" href="{% url 'home.my_events' %}">My Events</a>
+              {% elif user.userprofile.user_type == 'attendee' %}
+                <a class="nav-link" href="{% url 'home.my_orders' %}">My Orders</a>
               {% endif %}
               <span class="nav-link text-light">
                 <i class="fas fa-user me-1"></i>

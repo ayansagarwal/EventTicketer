@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Event
+from .models import Event, Order
 
 # Register your models here.
 
@@ -10,3 +10,11 @@ class EventAdmin(admin.ModelAdmin):
     search_fields = ('title', 'description', 'venue', 'organizer__username')
     date_hierarchy = 'date'
     ordering = ('-created_at',)
+
+
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    list_display = ('id', 'attendee', 'event', 'quantity', 'unit_price', 'status', 'created_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('attendee__username', 'event__title')
+    autocomplete_fields = ('attendee', 'event')
