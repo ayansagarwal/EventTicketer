@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- Hero Section -->
+<header class="masthead bg-cart-header text-white text-center py-4 mb-4">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-10 mx-auto">
+                <h1 class="display-5 fw-bold mb-2" style="text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);">
+                    <i class="fas fa-shopping-cart me-2"></i>Shopping Cart
+                </h1>
+                <p class="lead mb-0">
+                    Review your selected tickets before purchasing
+                </p>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="container mb-5">
+    <div class="row justify-content-center">
+        <div class="col-md-11 col-lg-10">
+            {% if cart_items %}
+                <div class="card shadow-lg border-0 cart-card mb-4">
+                    <div class="card-body p-4">
+                        <div class="table-responsive">
+                            <table class="table align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th scope="col">Event</th>
+                                        <th scope="col" class="text-center">Price</th>
+                                        <th scope="col" class="text-center">Quantity</th>
+                                        <th scope="col" class="text-center">Subtotal</th>
+                                        <th scope="col" class="text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in cart_items %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div>
+                                                    <h6 class="mb-1">
+                                                        <a href="{% url 'home.event_detail' item.event.id %}" class="text-decoration-none text-dark">
+                                                            {{ item.event.title }}
+                                                        </a>
+                                                    </h6>
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-calendar me-1"></i>{{ item.event.date|date:"M d, Y" }}
+                                                        <i class="fas fa-clock ms-2 me-1"></i>{{ item.event.time|time:"g:i A" }}
+                                                    </small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-center">${{ item.event.ticket_price }}</td>
+                                        <td class="text-center">
+                                            <form method="post" action="{% url 'home.update_cart_quantity' item.id %}" class="d-inline-block">
+                                                {% csrf_token %}
+                                                <div class="input-group input-group-sm justify-content-center" style="max-width: 150px; margin: 0 auto;">
+                                                    <input type="number" name="quantity" min="1" max="{{ item.event.ticket_availability }}" value="{{ item.quantity }}" class="form-control text-center" style="width: 60px;">
+                                                    <button type="submit" class="btn btn-outline-primary btn-sm">
+                                                        <i class="fas fa-sync-alt"></i>
+                                                    </button>
+                                                </div>
+                                            </form>
+                                            <small class="text-muted d-block mt-1">Max: {{ item.event.ticket_availability }}</small>
+                                        </td>
+                                        <td class="text-center fw-bold">${{ item.total_price }}</td>
+                                        <td class="text-center">
+                                            <form method="post" action="{% url 'home.remove_from_cart' item.id %}" class="d-inline" onsubmit="return confirm('Remove this item from cart?');">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-danger btn-sm rounded-pill">
+                                                    <i class="fas fa-trash"></i> Remove
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cart Summary -->
+                <div class="card shadow-lg border-0 cart-summary-card">
+                    <div class="card-body p-4">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h5 class="mb-3"><i class="fas fa-info-circle me-2 text-info"></i>Cart Summary</h5>
+                                <p class="mb-2"><strong>Total Items:</strong> {{ cart.total_items }}</p>
+                                <p class="mb-0 text-muted small">
+                                    <i class="fas fa-exclamation-circle me-1"></i>
+                                    Items in cart are not reserved. Purchase to secure your tickets.
+                                </p>
+                            </div>
+                            <div class="col-md-4 text-md-end">
+                                <h5 class="mb-3">Total Price</h5>
+                                <h2 class="text-primary mb-3">${{ cart.total_price }}</h2>
+                                <div class="d-grid gap-2">
+                                    <a href="{% url 'home.index' %}" class="btn btn-outline-secondary rounded-pill">
+                                        <i class="fas fa-arrow-left me-2"></i>Continue Shopping
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="card shadow-lg border-0 cart-card text-center p-5">
+                    <div class="card-body">
+                        <i class="fas fa-shopping-cart text-muted" style="font-size: 5rem; opacity: 0.3;"></i>
+                        <h3 class="mt-4 mb-3">Your cart is empty</h3>
+                        <p class="text-muted mb-4">Add some events to your cart to get started!</p>
+                        <a href="{% url 'home.index' %}" class="btn btn-primary btn-lg rounded-pill px-5">
+                            <i class="fas fa-search me-2"></i>Browse Events
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-cart-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-attachment: fixed;
+    background-size: cover;
+    border-radius: 0 0 20px 20px;
+}
+
+.bg-cart-header h1 {
+    animation: fadeInDown 0.6s ease-out;
+}
+
+.bg-cart-header .lead {
+    animation: fadeInUp 0.6s ease-out 0.2s both;
+    opacity: 0.95;
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 0.95;
+        transform: translateY(0);
+    }
+}
+
+.cart-card, .cart-summary-card {
+    border-radius: 20px;
+    animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.table thead th {
+    border-bottom: 2px solid #667eea;
+    color: #495057;
+    font-weight: 600;
+}
+
+.table tbody tr {
+    transition: all 0.3s ease;
+}
+
+.table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-outline-secondary {
+    border-width: 2px;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-secondary:hover {
+    transform: translateY(-2px);
+}
+
+.btn-danger {
+    transition: all 0.3s ease;
+}
+
+.btn-danger:hover {
+    transform: scale(1.05);
+}
+
+.cart-summary-card {
+    background: linear-gradient(to bottom right, #f8f9fa 0%, #ffffff 100%);
+}
+
+@media (max-width: 768px) {
+    .table {
+        font-size: 0.875rem;
+    }
+    
+    .cart-card .card-body {
+        padding: 1.5rem !important;
+    }
+}
+</style>
+
+{% endblock %}
+

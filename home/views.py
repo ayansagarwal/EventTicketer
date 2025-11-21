@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.core.paginator import Paginator
 from decimal import Decimal, InvalidOperation
-from .models import Event, Order
+from .models import Event, Order, Cart, CartItem
 from .forms import EventForm
 
 def index(request):
@@ -333,3 +333,131 @@ def events_api(request):
         'previous_page': page_obj.previous_page_number() if page_obj.has_previous() else None,
         'results': events_data,
     })
+
+@login_required
+def add_to_cart(request, event_id):
+    """
+    Add event tickets to the shopping cart.
+    """
+    event = get_object_or_404(Event, id=event_id)
+
+    # Only attendees can add items to cart
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'attendee':
+        messages.error(request, 'Only Event Attendees can add items to cart.')
+        return redirect('home.event_detail', event_id=event.id)
+
+    if request.method != 'POST':
+        return redirect('home.event_detail', event_id=event.id)
+
+    # Validate quantity
+    qty_str = request.POST.get('quantity', '1').strip()
+    try:
+        quantity = int(qty_str)
+    except ValueError:
+        messages.error(request, 'Invalid quantity.')
+        return redirect('home.event_detail', event_id=event.id)
+
+    if quantity < 1:
+        messages.error(request, 'Quantity must be at least 1.')
+        return redirect('home.event_detail', event_id=event.id)
+
+    if event.ticket_availability <= 0:
+        messages.error(request, 'Tickets are sold out for this event.')
+        return redirect('home.event_detail', event_id=event.id)
+
+    if quantity > event.ticket_availability:
+        messages.error(request, f'Only {event.ticket_availability} ticket(s) available for this event.')
+        return redirect('home.event_detail', event_id=event.id)
+
+    # Get or create cart for user
+    cart, created = Cart.objects.get_or_create(user=request.user)
+
+    # Check if item already in cart
+    cart_item, item_created = CartItem.objects.get_or_create(
+        cart=cart,
+        event=event,
+        defaults={'quantity': quantity}
+    )
+
+    if not item_created:
+        # Update quantity if item already exists
+        new_quantity = cart_item.quantity + quantity
+        if new_quantity > event.ticket_availability:
+            messages.error(request, f'Only {event.ticket_availability} ticket(s) available. You already have {cart_item.quantity} in your cart.')
+            return redirect('home.event_detail', event_id=event.id)
+        cart_item.quantity = new_quantity
+        cart_item.save()
+        messages.success(request, f'Updated cart: {cart_item.quantity} ticket(s) for {event.title}')
+    else:
+        messages.success(request, f'Added {quantity} ticket(s) for {event.title} to your cart.')
+
+    return redirect('home.view_cart')
+
+@login_required
+def view_cart(request):
+    """
+    Display the user's shopping cart.
+    """
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'attendee':
+        messages.error(request, 'Only Event Attendees can view cart.')
+        return redirect('home.index')
+
+    cart, created = Cart.objects.get_or_create(user=request.user)
+    cart_items = cart.items.select_related('event').all()
+
+    template_data = {'title': 'Shopping Cart'}
+    return render(request, 'home/cart.html', {
+        'template_data': template_data,
+        'cart': cart,
+        'cart_items': cart_items,
+    })
+
+@login_required
+def remove_from_cart(request, item_id):
+    """
+    Remove an item from the shopping cart.
+    """
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'attendee':
+        messages.error(request, 'Only Event Attendees can modify cart.')
+        return redirect('home.index')
+
+    cart_item = get_object_or_404(CartItem, id=item_id, cart__user=request.user)
+    event_title = cart_item.event.title
+    cart_item.delete()
+    messages.success(request, f'Removed {event_title} from your cart.')
+    return redirect('home.view_cart')
+
+@login_required
+def update_cart_quantity(request, item_id):
+    """
+    Update the quantity of an item in the shopping cart.
+    """
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'attendee':
+        messages.error(request, 'Only Event Attendees can modify cart.')
+        return redirect('home.index')
+
+    if request.method != 'POST':
+        return redirect('home.view_cart')
+
+    cart_item = get_object_or_404(CartItem, id=item_id, cart__user=request.user)
+
+    # Validate quantity
+    qty_str = request.POST.get('quantity', '1').strip()
+    try:
+        quantity = int(qty_str)
+    except ValueError:
+        messages.error(request, 'Invalid quantity.')
+        return redirect('home.view_cart')
+
+    if quantity < 1:
+        messages.error(request, 'Quantity must be at least 1.')
+        return redirect('home.view_cart')
+
+    if quantity > cart_item.event.ticket_availability:
+        messages.error(request, f'Only {cart_item.event.ticket_availability} ticket(s) available for {cart_item.event.title}.')
+        return redirect('home.view_cart')
+
+    cart_item.quantity = quantity
+    cart_item.save()
+    messages.success(request, f'Updated quantity for {cart_item.event.title} to {quantity}.')
+    return redirect('home.view_cart')
