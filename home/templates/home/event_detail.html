@@ -2,6 +2,11 @@
 {% load static %}
 
 {% block content %}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""/>
+
 <!-- Hero Section -->
 <header class="masthead bg-event-detail-header text-white text-center py-4 mb-4">
     <div class="container">
@@ -53,6 +58,22 @@
                                 <strong>Venue:</strong> {{ event.venue }}
                             </div>
                         </div>
+
+                        {% if event.latitude and event.longitude %}
+                        <!-- Map Display Section -->
+                        <div class="detail-section mb-4">
+                            <h5 class="fw-bold mb-3 text-primary">
+                                <i class="fas fa-map me-2"></i>Event Location
+                            </h5>
+                            <div id="map" style="height: 400px; border-radius: 12px; border: 2px solid #e9ecef;"></div>
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Coordinates: {{ event.latitude }}, {{ event.longitude }}
+                                </small>
+                            </div>
+                        </div>
+                        {% endif %}
 
                         <div class="row mb-4">
                             <div class="col-md-6 mb-3">
@@ -311,8 +332,40 @@
     .bg-event-detail-header h1 {
         font-size: 1.75rem;
     }
+    
+    #map {
+        height: 300px !important;
+    }
 }
 </style>
 
-{% endblock %}
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""></script>
 
+{% if event.latitude and event.longitude %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const eventLat = parseFloat('{{ event.latitude }}');
+    const eventLng = parseFloat('{{ event.longitude }}');
+    
+    // Initialize map centered on event location
+    const map = L.map('map').setView([eventLat, eventLng], 15);
+    
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19
+    }).addTo(map);
+    
+    // Add marker for event location
+    const marker = L.marker([eventLat, eventLng]).addTo(map);
+    
+    // Add popup with event title
+    marker.bindPopup('<b>{{ event.title|escapejs }}</b><br>{{ event.venue|escapejs }}').openPopup();
+});
+</script>
+{% endif %}
+
+{% endblock %}
