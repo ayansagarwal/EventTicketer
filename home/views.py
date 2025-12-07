@@ -241,7 +241,7 @@ def events_map(request):
         is_published=True,
         latitude__isnull=False,
         longitude__isnull=False
-    ).exclude(latitude='').exclude(longitude='')
+    )
     
     template_data = {'title': 'Events Map'}
     return render(request, 'home/events_map.html', {
