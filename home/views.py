@@ -226,6 +226,29 @@ def events_search(request):
         'template_data': template_data,
     })
 
+@login_required
+def events_map(request):
+    """
+    Display an interactive map showing events near the user's current location.
+    Only accessible to Event Attendees.
+    """
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'attendee':
+        messages.error(request, 'Only Event Attendees can view the events map.')
+        return redirect('home.index')
+    
+    # Get all published events that have coordinates
+    events = Event.objects.filter(
+        is_published=True,
+        latitude__isnull=False,
+        longitude__isnull=False
+    ).exclude(latitude='').exclude(longitude='')
+    
+    template_data = {'title': 'Events Map'}
+    return render(request, 'home/events_map.html', {
+        'template_data': template_data,
+        'events': events,
+    })
+
 def events_api(request):
     """
     API endpoint that returns paginated JSON responses for events with filtering support.

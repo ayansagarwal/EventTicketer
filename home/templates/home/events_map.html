@@ -1,0 +1,282 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""/>
+
+<!-- Hero Section -->
+<header class="masthead bg-map-header text-white text-center py-5 mb-4">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto">
+                <h1 class="display-4 fw-bold mb-3" style="text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);">
+                    <i class="fas fa-map-marked-alt me-3"></i>Events Map
+                </h1>
+                <p class="lead">Discover events near your location</p>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="container mb-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-lg border-0 map-card mb-4">
+                <div class="card-body p-0">
+                    <div id="map" style="height: 600px; border-radius: 15px;"></div>
+                </div>
+            </div>
+            
+            {% if events %}
+            <div class="card shadow-lg border-0">
+                <div class="card-body p-4">
+                    <h5 class="mb-3">
+                        <i class="fas fa-list me-2 text-primary"></i>Events on Map ({{ events|length }})
+                    </h5>
+                    <div class="row">
+                        {% for event in events %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="event-list-item p-3 border rounded">
+                                <h6 class="mb-2">
+                                    <a href="{% url 'home.event_detail' event.id %}" class="text-decoration-none">
+                                        {{ event.title }}
+                                    </a>
+                                </h6>
+                                <small class="text-muted d-block mb-1">
+                                    <i class="fas fa-calendar-alt me-1"></i>{{ event.date|date:"M d, Y" }}
+                                </small>
+                                <small class="text-muted d-block mb-1">
+                                    <i class="fas fa-map-marker-alt me-1"></i>{{ event.venue|truncatewords:8 }}
+                                </small>
+                                <small class="text-success fw-bold d-block">
+                                    ${{ event.ticket_price }}
+                                </small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="card shadow-lg border-0">
+                <div class="card-body p-5 text-center">
+                    <i class="fas fa-map-marked-alt fa-4x text-muted mb-3" style="opacity: 0.5;"></i>
+                    <h4 class="text-muted mb-2 fw-semibold">No Events with Location Data</h4>
+                    <p class="text-muted">Events need to have location coordinates to appear on the map.</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-map-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-attachment: fixed;
+    background-size: cover;
+    border-radius: 0 0 20px 20px;
+}
+
+.bg-map-header h1 {
+    animation: fadeInDown 0.6s ease-out;
+}
+
+.bg-map-header .lead {
+    animation: fadeInUp 0.6s ease-out 0.2s both;
+    opacity: 0.95;
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 0.95;
+        transform: translateY(0);
+    }
+}
+
+.map-card {
+    border-radius: 15px;
+    animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.event-list-item {
+    transition: all 0.3s ease;
+    background-color: #f8f9fa;
+}
+
+.event-list-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    background-color: #ffffff;
+}
+
+.event-list-item a {
+    color: #212529;
+    font-weight: 600;
+}
+
+.event-list-item a:hover {
+    color: #667eea;
+}
+
+@media (max-width: 768px) {
+    .bg-map-header h1 {
+        font-size: 2rem;
+    }
+    
+    #map {
+        height: 400px !important;
+    }
+}
+</style>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize map with default center (New York City)
+    const defaultLat = 40.7128;
+    const defaultLng = -74.0060;
+    const defaultZoom = 10;
+    
+    const map = L.map('map').setView([defaultLat, defaultLng], defaultZoom);
+    
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19
+    }).addTo(map);
+    
+    // Try to get user's current location
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                const userLat = position.coords.latitude;
+                const userLng = position.coords.longitude;
+                
+                // Center map on user's location
+                map.setView([userLat, userLng], 12);
+                
+                // Add marker for user's location
+                const userIcon = L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                });
+                
+                L.marker([userLat, userLng], {icon: userIcon})
+                    .addTo(map)
+                    .bindPopup('<b>Your Location</b>')
+                    .openPopup();
+            },
+            function(error) {
+                console.log('Geolocation error:', error);
+            }
+        );
+    }
+    
+    // Add markers for events
+    const events = [
+        {% for event in events %}
+        {
+            id: {{ event.id }},
+            title: "{{ event.title|escapejs }}",
+            description: "{{ event.description|escapejs|truncatewords:20 }}",
+            date: "{{ event.date|date:"M d, Y" }}",
+            time: "{{ event.time|time:"g:i A" }}",
+            venue: "{{ event.venue|escapejs }}",
+            price: "{{ event.ticket_price }}",
+            availability: {{ event.ticket_availability }},
+            latitude: parseFloat("{{ event.latitude }}"),
+            longitude: parseFloat("{{ event.longitude }}"),
+            url: "{% url 'home.event_detail' event.id %}"
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+    
+    // Create custom icon for events
+    const eventIcon = L.icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+    });
+    
+    // Add markers for each event
+    events.forEach(function(event) {
+        if (event.latitude && event.longitude && !isNaN(event.latitude) && !isNaN(event.longitude)) {
+            const popupContent = `
+                <div style="min-width: 200px;">
+                    <h6 style="margin: 0 0 8px 0; font-weight: 600;">${event.title}</h6>
+                    <p style="margin: 0 0 8px 0; color: #6c757d; font-size: 0.9rem;">${event.description}</p>
+                    <div style="margin: 8px 0; font-size: 0.85rem;">
+                        <div><i class="fas fa-calendar-alt"></i> ${event.date}</div>
+                        <div><i class="fas fa-clock"></i> ${event.time}</div>
+                        <div><i class="fas fa-map-marker-alt"></i> ${event.venue}</div>
+                        <div style="margin-top: 8px;">
+                            <strong class="text-success">$${parseFloat(event.price).toFixed(2)}</strong>
+                            <span class="text-muted">(${event.availability} available)</span>
+                        </div>
+                    </div>
+                    <a href="${event.url}" class="btn btn-primary btn-sm" style="width: 100%; margin-top: 8px;">
+                        View Details
+                    </a>
+                </div>
+            `;
+            
+            L.marker([event.latitude, event.longitude], {icon: eventIcon})
+                .addTo(map)
+                .bindPopup(popupContent);
+        }
+    });
+    
+    // Fit map bounds to show all markers if there are events
+    if (events.length > 0) {
+        const validEvents = events.filter(e => e.latitude && e.longitude && !isNaN(e.latitude) && !isNaN(e.longitude));
+        if (validEvents.length > 0) {
+            const bounds = validEvents.map(e => [e.latitude, e.longitude]);
+            map.fitBounds(bounds, {padding: [50, 50]});
+        }
+    }
+});
+</script>
+
+{% endblock %}
+

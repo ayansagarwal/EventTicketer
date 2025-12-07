@@ -13,6 +13,8 @@ urlpatterns = [
     path('events/api/', views.events_api, name='home.events_api'),
     # New events search page with filtering UI
     path('events/', views.events_search, name='home.events_search'),
+    # Interactive map view for attendees
+    path('events/map/', views.events_map, name='home.events_map'),
     # Shopping cart URLs
     path('cart/', views.view_cart, name='home.view_cart'),
     path('cart/add/<int:event_id>/', views.add_to_cart, name='home.add_to_cart'),
