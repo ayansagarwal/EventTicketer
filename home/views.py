@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.core.paginator import Paginator
 from decimal import Decimal, InvalidOperation
-from .models import Event, Order, Cart, CartItem
+from .models import Event, Order, Cart, CartItem, ChatRoom, Message
 from .forms import EventForm
 
 def index(request):
@@ -94,9 +94,20 @@ def create_event(request):
 def event_detail(request, event_id):
     event = get_object_or_404(Event, id=event_id)
     template_data = {'title': event.title}
+    
+    # Check if user has purchased tickets for this event
+    has_purchased = False
+    if request.user.is_authenticated:
+        has_purchased = Order.objects.filter(
+            attendee=request.user,
+            event=event,
+            status='paid'
+        ).exists()
+    
     return render(request, 'home/event_detail.html', {
         'template_data': template_data,
-        'event': event
+        'event': event,
+        'has_purchased': has_purchased
     })
 
 @login_required
@@ -484,3 +495,190 @@ def update_cart_quantity(request, item_id):
     cart_item.save()
     messages.success(request, f'Updated quantity for {cart_item.event.title} to {quantity}.')
     return redirect('home.view_cart')
+
+@login_required
+def chat_rooms(request):
+    """
+    Display all chat rooms for events where the user has purchased tickets.
+    """
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'attendee':
+        messages.error(request, 'Only Event Attendees can access chat rooms.')
+        return redirect('home.index')
+    
+    # Get all events where user has purchased tickets (paid orders)
+    events_with_orders = Event.objects.filter(
+        orders__attendee=request.user,
+        orders__status='paid'
+    ).distinct()
+    
+    # Get or create chat rooms for these events
+    chat_rooms_list = []
+    for event in events_with_orders:
+        chat_room, created = ChatRoom.objects.get_or_create(event=event)
+        # Get the latest message timestamp
+        latest_message = chat_room.messages.order_by('-created_at').first()
+        chat_rooms_list.append({
+            'chat_room': chat_room,
+            'event': event,
+            'latest_message': latest_message,
+            'message_count': chat_room.messages.count(),
+            'participant_count': chat_room.get_participants().count(),
+        })
+    
+    # Sort by latest message time (most recent first)
+    chat_rooms_list.sort(key=lambda x: x['latest_message'].created_at if x['latest_message'] else x['chat_room'].created_at, reverse=True)
+    
+    template_data = {'title': 'My Chat Rooms'}
+    return render(request, 'home/chat_rooms.html', {
+        'template_data': template_data,
+        'chat_rooms_list': chat_rooms_list,
+    })
+
+@login_required
+def chat_room_detail(request, event_id):
+    """
+    Display the chat room for a specific event and allow sending messages.
+    """
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'attendee':
+        messages.error(request, 'Only Event Attendees can access chat rooms.')
+        return redirect('home.index')
+    
+    event = get_object_or_404(Event, id=event_id)
+    
+    # Check if user has purchased tickets for this event
+    has_order = Order.objects.filter(
+        attendee=request.user,
+        event=event,
+        status='paid'
+    ).exists()
+    
+    if not has_order:
+        messages.error(request, 'You must have purchased tickets for this event to access its chat room.')
+        return redirect('home.event_detail', event_id=event.id)
+    
+    # Get or create chat room
+    chat_room, created = ChatRoom.objects.get_or_create(event=event)
+    
+    # Get all messages
+    chat_messages = chat_room.messages.select_related('sender').order_by('created_at')
+    
+    # Get participants
+    participants = chat_room.get_participants()
+    
+    template_data = {'title': f'Chat - {event.title}'}
+    return render(request, 'home/chat_room_detail.html', {
+        'template_data': template_data,
+        'chat_room': chat_room,
+        'event': event,
+        'chat_messages': chat_messages,
+        'participants': participants,
+        'current_user_id': request.user.id,
+    })
+
+@login_required
+def send_message(request, event_id):
+    """
+    Handle sending a message to a chat room.
+    """
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'attendee':
+        messages.error(request, 'Only Event Attendees can send messages.')
+        return redirect('home.index')
+    
+    event = get_object_or_404(Event, id=event_id)
+    
+    # Check if user has purchased tickets for this event
+    has_order = Order.objects.filter(
+        attendee=request.user,
+        event=event,
+        status='paid'
+    ).exists()
+    
+    if not has_order:
+        messages.error(request, 'You must have purchased tickets for this event to send messages.')
+        return redirect('home.event_detail', event_id=event.id)
+    
+    if request.method != 'POST':
+        return redirect('home.chat_room_detail', event_id=event.id)
+    
+    # Get or create chat room
+    chat_room, created = ChatRoom.objects.get_or_create(event=event)
+    
+    # Get message content
+    content = request.POST.get('content', '').strip()
+    
+    if not content:
+        messages.error(request, 'Message content cannot be empty.')
+        return redirect('home.chat_room_detail', event_id=event.id)
+    
+    if len(content) > 1000:
+        messages.error(request, 'Message is too long. Maximum 1000 characters.')
+        return redirect('home.chat_room_detail', event_id=event.id)
+    
+    # Create message
+    Message.objects.create(
+        chat_room=chat_room,
+        sender=request.user,
+        content=content
+    )
+    
+    return redirect('home.chat_room_detail', event_id=event.id)
+
+@login_required
+def chat_messages_api(request, event_id):
+    """
+    API endpoint to fetch messages for a chat room (for real-time updates).
+    Returns JSON with messages.
+    """
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'attendee':
+        return JsonResponse({'error': 'Only Event Attendees can access chat messages.'}, status=403)
+    
+    event = get_object_or_404(Event, id=event_id)
+    
+    # Check if user has purchased tickets for this event
+    has_order = Order.objects.filter(
+        attendee=request.user,
+        event=event,
+        status='paid'
+    ).exists()
+    
+    if not has_order:
+        return JsonResponse({'error': 'You must have purchased tickets for this event.'}, status=403)
+    
+    # Get chat room
+    try:
+        chat_room = ChatRoom.objects.get(event=event)
+    except ChatRoom.DoesNotExist:
+        return JsonResponse({'messages': []})
+    
+    # Get messages (optionally filter by timestamp for incremental updates)
+    since = request.GET.get('since')
+    if since:
+        try:
+            from django.utils import timezone
+            from datetime import datetime
+            since_dt = datetime.fromisoformat(since.replace('Z', '+00:00'))
+            chat_messages = chat_room.messages.filter(created_at__gt=since_dt).select_related('sender').order_by('created_at')
+        except (ValueError, AttributeError):
+            chat_messages = chat_room.messages.select_related('sender').order_by('created_at')
+    else:
+        chat_messages = chat_room.messages.select_related('sender').order_by('created_at')
+    
+    # Serialize messages
+    messages_data = []
+    for msg in chat_messages:
+        messages_data.append({
+            'id': msg.id,
+            'sender': {
+                'id': msg.sender.id,
+                'username': msg.sender.username,
+                'full_name': msg.sender.get_full_name() or msg.sender.username,
+            },
+            'content': msg.content,
+            'created_at': msg.created_at.isoformat(),
+        })
+    
+    return JsonResponse({
+        'messages': messages_data,
+        'event_id': event.id,
+        'event_title': event.title,
+    })

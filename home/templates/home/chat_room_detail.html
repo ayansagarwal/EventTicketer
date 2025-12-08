@@ -1,0 +1,315 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<header class="masthead bg-chat-room-header text-white text-center py-4 mb-4">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-10 mx-auto">
+                <h1 class="display-5 fw-bold mb-2" style="text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);">
+                    <i class="fas fa-comments me-2"></i>{{ event.title }}
+                </h1>
+                <p class="lead mb-0">
+                    <i class="fas fa-users me-2"></i>{{ participants.count }} Participant{{ participants.count|pluralize }}
+                </p>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="container mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow-lg border-0 chat-room-detail-card">
+                <div class="card-body p-0">
+                    <!-- Chat Messages Area -->
+                    <div id="chat-messages" class="chat-messages-container p-4" style="height: 500px; overflow-y: auto; background: #f8f9fa;">
+                        {% for message in chat_messages %}
+                        <div class="message-item mb-3 {% if message.sender == user %}message-sent{% else %}message-received{% endif %}" data-message-id="{{ message.id }}">
+                            <div class="message-bubble">
+                                <div class="message-header mb-1">
+                                    <strong class="message-sender">{{ message.sender.username }}</strong>
+                                    <small class="text-muted ms-2">{{ message.created_at|date:"g:i A" }}</small>
+                                </div>
+                                <div class="message-content">{{ message.content }}</div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-comments fa-3x mb-3" style="opacity: 0.3;"></i>
+                            <p>No messages yet. Be the first to start the conversation!</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Message Input Form -->
+                    <div class="chat-input-container p-4 border-top bg-white">
+                        <form method="post" action="{% url 'home.send_message' event.id %}" id="message-form">
+                            {% csrf_token %}
+                            <div class="input-group">
+                                <input type="text" 
+                                       name="content" 
+                                       id="message-input" 
+                                       class="form-control form-control-lg" 
+                                       placeholder="Type your message here..." 
+                                       maxlength="1000"
+                                       required
+                                       autocomplete="off">
+                                <button type="submit" class="btn btn-primary btn-lg" id="send-button">
+                                    <i class="fas fa-paper-plane me-2"></i>Send
+                                </button>
+                            </div>
+                            <small class="text-muted mt-2 d-block">
+                                <span id="char-count">0</span>/1000 characters
+                            </small>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center mt-4">
+                <a href="{% url 'home.chat_rooms' %}" class="btn btn-outline-secondary btn-lg rounded-pill px-4 me-2">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Chat Rooms
+                </a>
+                <a href="{% url 'home.event_detail' event.id %}" class="btn btn-outline-primary btn-lg rounded-pill px-4">
+                    <i class="fas fa-calendar me-2"></i>View Event
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-chat-room-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-attachment: fixed;
+    background-size: cover;
+    border-radius: 0 0 20px 20px;
+}
+
+.chat-room-detail-card {
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+.chat-messages-container {
+    scrollbar-width: thin;
+    scrollbar-color: #667eea #f8f9fa;
+}
+
+.chat-messages-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.chat-messages-container::-webkit-scrollbar-track {
+    background: #f8f9fa;
+}
+
+.chat-messages-container::-webkit-scrollbar-thumb {
+    background: #667eea;
+    border-radius: 4px;
+}
+
+.message-item {
+    display: flex;
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.message-sent {
+    justify-content: flex-end;
+}
+
+.message-received {
+    justify-content: flex-start;
+}
+
+.message-bubble {
+    max-width: 70%;
+    padding: 12px 16px;
+    border-radius: 18px;
+    word-wrap: break-word;
+}
+
+.message-sent .message-bubble {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+
+.message-received .message-bubble {
+    background: white;
+    color: #333;
+    border: 1px solid #e9ecef;
+    border-bottom-left-radius: 4px;
+}
+
+.message-header {
+    font-size: 0.85rem;
+    opacity: 0.9;
+}
+
+.message-sent .message-header {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.message-content {
+    margin-top: 4px;
+    line-height: 1.5;
+}
+
+.chat-input-container {
+    border-radius: 0 0 20px 20px;
+}
+
+#message-input {
+    border-radius: 25px 0 0 25px;
+    border-right: none;
+}
+
+#send-button {
+    border-radius: 0 25px 25px 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    padding: 0.5rem 1.5rem;
+}
+
+#send-button:hover {
+    background: linear-gradient(135deg, #5568d3 0%, #653a8f 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const messageForm = document.getElementById('message-form');
+    const messageInput = document.getElementById('message-input');
+    const charCount = document.getElementById('char-count');
+    const chatMessages = document.getElementById('chat-messages');
+    const sendButton = document.getElementById('send-button');
+    
+    // Character counter
+    messageInput.addEventListener('input', function() {
+        charCount.textContent = this.value.length;
+    });
+    
+    // Auto-scroll to bottom
+    function scrollToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    scrollToBottom();
+    
+    // Poll for new messages every 3 seconds
+    let lastMessageId = null;
+    const messageItems = document.querySelectorAll('.message-item');
+    if (messageItems.length > 0) {
+        const lastItem = messageItems[messageItems.length - 1];
+        lastMessageId = parseInt(lastItem.getAttribute('data-message-id'));
+    }
+    
+    function pollMessages() {
+        fetch('{% url "home.chat_messages_api" event.id %}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.messages && data.messages.length > 0) {
+                    data.messages.forEach(msg => {
+                        if (lastMessageId === null || msg.id > lastMessageId) {
+                            addMessageToChat(msg);
+                            lastMessageId = msg.id;
+                        }
+                    });
+                }
+            })
+            .catch(error => console.error('Error fetching messages:', error));
+    }
+    
+    function addMessageToChat(msg) {
+        const isSent = msg.sender.id === {{ current_user_id }};
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message-item mb-3 ${isSent ? 'message-sent' : 'message-received'}`;
+        messageDiv.setAttribute('data-message-id', msg.id);
+        
+        const date = new Date(msg.created_at);
+        const timeString = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        
+        messageDiv.innerHTML = `
+            <div class="message-bubble">
+                <div class="message-header mb-1">
+                    <strong class="message-sender">${escapeHtml(msg.sender.username)}</strong>
+                    <small class="text-muted ms-2">${timeString}</small>
+                </div>
+                <div class="message-content">${escapeHtml(msg.content)}</div>
+            </div>
+        `;
+        
+        chatMessages.appendChild(messageDiv);
+        scrollToBottom();
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Start polling
+    setInterval(pollMessages, 3000);
+    
+    // Handle form submission
+    messageForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const content = messageInput.value.trim();
+        
+        if (!content) {
+            return;
+        }
+        
+        // Disable form while sending
+        sendButton.disabled = true;
+        sendButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Sending...';
+        
+        // Create form data
+        const formData = new FormData(messageForm);
+        
+        fetch(messageForm.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                messageInput.value = '';
+                charCount.textContent = '0';
+                // Reload page to show new message
+                window.location.reload();
+            } else {
+                alert('Error sending message. Please try again.');
+                sendButton.disabled = false;
+                sendButton.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Send';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error sending message. Please try again.');
+            sendButton.disabled = false;
+            sendButton.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Send';
+        });
+    });
+});
+</script>
+{% endblock %}
+

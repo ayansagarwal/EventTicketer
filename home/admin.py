@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Event, Order, Cart, CartItem
+from .models import Event, Order, Cart, CartItem, ChatRoom, Message
 
 # Register your models here.
 
@@ -40,3 +40,36 @@ class CartItemAdmin(admin.ModelAdmin):
     list_display = ('cart', 'event', 'quantity', 'total_price', 'added_at')
     list_filter = ('added_at',)
     search_fields = ('cart__user__username', 'event__title')
+
+
+class MessageInline(admin.TabularInline):
+    model = Message
+    extra = 0
+    fields = ('sender', 'content', 'created_at')
+    readonly_fields = ('created_at',)
+    can_delete = False
+
+
+@admin.register(ChatRoom)
+class ChatRoomAdmin(admin.ModelAdmin):
+    list_display = ('event', 'created_at', 'updated_at', 'message_count')
+    list_filter = ('created_at', 'updated_at')
+    search_fields = ('event__title',)
+    readonly_fields = ('created_at', 'updated_at')
+    inlines = [MessageInline]
+    
+    def message_count(self, obj):
+        return obj.messages.count()
+    message_count.short_description = 'Messages'
+
+
+@admin.register(Message)
+class MessageAdmin(admin.ModelAdmin):
+    list_display = ('sender', 'chat_room', 'content_preview', 'created_at')
+    list_filter = ('created_at',)
+    search_fields = ('sender__username', 'content', 'chat_room__event__title')
+    readonly_fields = ('created_at', 'updated_at')
+    
+    def content_preview(self, obj):
+        return obj.content[:50] + '...' if len(obj.content) > 50 else obj.content
+    content_preview.short_description = 'Content'

@@ -84,3 +84,61 @@ class CartItem(models.Model):
     @property
     def total_price(self):
         return self.quantity * self.event.ticket_price
+
+
+class ChatRoom(models.Model):
+    """
+    A chat room for attendees who have purchased tickets to a specific event.
+    Each event has one chat room that is automatically created when the first message is sent.
+    """
+    event = models.OneToOneField(Event, on_delete=models.CASCADE, related_name='chat_room')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-updated_at']
+    
+    def __str__(self):
+        return f"Chat Room - {self.event.title}"
+    
+    def get_participants(self):
+        """
+        Get all attendees who have purchased tickets (paid orders) for this event.
+        """
+        from django.contrib.auth.models import User
+        return User.objects.filter(
+            orders__event=self.event,
+            orders__status='paid'
+        ).distinct()
+    
+    def can_user_access(self, user):
+        """
+        Check if a user can access this chat room.
+        Only attendees with paid orders for this event can access.
+        """
+        if not user.is_authenticated:
+            return False
+        if not hasattr(user, 'userprofile') or user.userprofile.user_type != 'attendee':
+            return False
+        return Order.objects.filter(
+            attendee=user,
+            event=self.event,
+            status='paid'
+        ).exists()
+
+
+class Message(models.Model):
+    """
+    A message in a chat room.
+    """
+    chat_room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE, related_name='messages')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chat_messages')
+    content = models.TextField(max_length=1000)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['created_at']
+    
+    def __str__(self):
+        return f"Message from {self.sender.username} in {self.chat_room.event.title}"

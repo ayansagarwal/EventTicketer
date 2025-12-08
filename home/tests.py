@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 from django.urls import reverse
 from decimal import Decimal
 from datetime import date, time
-from .models import Event
+from .models import Event, Order, ChatRoom, Message
 from user_accounts.models import UserProfile
 
 
@@ -330,3 +330,286 @@ class EventSearchTests(TestCase):
         
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Search Events')
+
+
+class ChatTests(TestCase):
+    """Test cases for chat functionality."""
+    
+    def setUp(self):
+        """Set up test data for chat tests."""
+        # Create organizer
+        self.organizer = User.objects.create_user(
+            username='organizer1',
+            email='org1@test.com',
+            password='testpass123'
+        )
+        self.organizer.userprofile.user_type = 'event_organizer'
+        self.organizer.userprofile.save()
+        
+        # Create attendees
+        self.attendee1 = User.objects.create_user(
+            username='attendee1',
+            email='att1@test.com',
+            password='testpass123',
+            first_name='John',
+            last_name='Doe'
+        )
+        self.attendee1.userprofile.user_type = 'attendee'
+        self.attendee1.userprofile.save()
+        
+        self.attendee2 = User.objects.create_user(
+            username='attendee2',
+            email='att2@test.com',
+            password='testpass123',
+            first_name='Jane',
+            last_name='Smith'
+        )
+        self.attendee2.userprofile.user_type = 'attendee'
+        self.attendee2.userprofile.save()
+        
+        # Create an attendee without orders
+        self.attendee3 = User.objects.create_user(
+            username='attendee3',
+            email='att3@test.com',
+            password='testpass123'
+        )
+        self.attendee3.userprofile.user_type = 'attendee'
+        self.attendee3.userprofile.save()
+        
+        # Create event
+        self.event = Event.objects.create(
+            title='Test Concert',
+            description='A test concert',
+            date=date(2024, 12, 25),
+            time=time(19, 0),
+            venue='Test Venue',
+            ticket_price=Decimal('50.00'),
+            ticket_availability=100,
+            organizer=self.organizer,
+            is_published=True
+        )
+        
+        # Create orders (paid tickets)
+        self.order1 = Order.objects.create(
+            attendee=self.attendee1,
+            event=self.event,
+            quantity=2,
+            unit_price=Decimal('50.00'),
+            status='paid'
+        )
+        
+        self.order2 = Order.objects.create(
+            attendee=self.attendee2,
+            event=self.event,
+            quantity=1,
+            unit_price=Decimal('50.00'),
+            status='paid'
+        )
+        
+        self.client = Client()
+    
+    def test_chat_rooms_view_requires_login(self):
+        """Test that chat rooms view requires login."""
+        url = reverse('home.chat_rooms')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)  # Redirect to login
+    
+    def test_chat_rooms_view_requires_attendee(self):
+        """Test that only attendees can access chat rooms."""
+        self.client.login(username='organizer1', password='testpass123')
+        url = reverse('home.chat_rooms')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)  # Redirect with error
+    
+    def test_chat_rooms_view_shows_user_events(self):
+        """Test that chat rooms view shows events where user has purchased tickets."""
+        self.client.login(username='attendee1', password='testpass123')
+        url = reverse('home.chat_rooms')
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Test Concert')
+        self.assertContains(response, 'My Chat Rooms')
+    
+    def test_chat_rooms_view_empty_when_no_orders(self):
+        """Test that chat rooms view shows empty when user has no orders."""
+        self.client.login(username='attendee3', password='testpass123')
+        url = reverse('home.chat_rooms')
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'No Chat Rooms Yet')
+    
+    def test_chat_room_detail_requires_login(self):
+        """Test that chat room detail requires login."""
+        url = reverse('home.chat_room_detail', args=[self.event.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+    
+    def test_chat_room_detail_requires_paid_order(self):
+        """Test that user must have paid order to access chat room."""
+        self.client.login(username='attendee3', password='testpass123')
+        url = reverse('home.chat_room_detail', args=[self.event.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)  # Redirect with error
+    
+    def test_chat_room_detail_accessible_with_order(self):
+        """Test that user with paid order can access chat room."""
+        self.client.login(username='attendee1', password='testpass123')
+        url = reverse('home.chat_room_detail', args=[self.event.id])
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Test Concert')
+        self.assertContains(response, 'Chat')
+    
+    def test_chat_room_created_on_first_access(self):
+        """Test that chat room is created when first accessed."""
+        self.client.login(username='attendee1', password='testpass123')
+        url = reverse('home.chat_room_detail', args=[self.event.id])
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, 200)
+        # Chat room should be created
+        self.assertTrue(ChatRoom.objects.filter(event=self.event).exists())
+    
+    def test_send_message_requires_login(self):
+        """Test that sending message requires login."""
+        url = reverse('home.send_message', args=[self.event.id])
+        response = self.client.post(url, {'content': 'Test message'})
+        self.assertEqual(response.status_code, 302)
+    
+    def test_send_message_requires_paid_order(self):
+        """Test that user must have paid order to send message."""
+        self.client.login(username='attendee3', password='testpass123')
+        url = reverse('home.send_message', args=[self.event.id])
+        response = self.client.post(url, {'content': 'Test message'})
+        self.assertEqual(response.status_code, 302)
+    
+    def test_send_message_creates_message(self):
+        """Test that sending message creates a Message object."""
+        self.client.login(username='attendee1', password='testpass123')
+        url = reverse('home.send_message', args=[self.event.id])
+        response = self.client.post(url, {'content': 'Hello, everyone!'})
+        
+        self.assertEqual(response.status_code, 302)  # Redirect after success
+        self.assertTrue(Message.objects.filter(
+            sender=self.attendee1,
+            content='Hello, everyone!'
+        ).exists())
+    
+    def test_send_message_empty_content_rejected(self):
+        """Test that empty message content is rejected."""
+        self.client.login(username='attendee1', password='testpass123')
+        url = reverse('home.send_message', args=[self.event.id])
+        response = self.client.post(url, {'content': ''})
+        
+        # Should redirect back with error
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Message.objects.filter(sender=self.attendee1).exists())
+    
+    def test_send_message_too_long_rejected(self):
+        """Test that message exceeding max length is rejected."""
+        self.client.login(username='attendee1', password='testpass123')
+        url = reverse('home.send_message', args=[self.event.id])
+        long_content = 'x' * 1001  # Exceeds 1000 character limit
+        response = self.client.post(url, {'content': long_content})
+        
+        self.assertEqual(response.status_code, 302)
+        # Message should not be created
+        messages = Message.objects.filter(sender=self.attendee1)
+        self.assertFalse(any(len(m.content) > 1000 for m in messages))
+    
+    def test_chat_messages_api_requires_login(self):
+        """Test that chat messages API requires login."""
+        url = reverse('home.chat_messages_api', args=[self.event.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+    
+    def test_chat_messages_api_requires_paid_order(self):
+        """Test that chat messages API requires paid order."""
+        self.client.login(username='attendee3', password='testpass123')
+        url = reverse('home.chat_messages_api', args=[self.event.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 403)
+    
+    def test_chat_messages_api_returns_messages(self):
+        """Test that chat messages API returns messages in JSON format."""
+        # Create chat room and messages
+        chat_room = ChatRoom.objects.create(event=self.event)
+        message1 = Message.objects.create(
+            chat_room=chat_room,
+            sender=self.attendee1,
+            content='First message'
+        )
+        message2 = Message.objects.create(
+            chat_room=chat_room,
+            sender=self.attendee2,
+            content='Second message'
+        )
+        
+        self.client.login(username='attendee1', password='testpass123')
+        url = reverse('home.chat_messages_api', args=[self.event.id])
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn('messages', data)
+        self.assertEqual(len(data['messages']), 2)
+        self.assertEqual(data['messages'][0]['content'], 'First message')
+        self.assertEqual(data['messages'][1]['content'], 'Second message')
+    
+    def test_chat_room_participants(self):
+        """Test that chat room correctly identifies participants."""
+        chat_room = ChatRoom.objects.create(event=self.event)
+        participants = chat_room.get_participants()
+        
+        self.assertEqual(participants.count(), 2)
+        self.assertIn(self.attendee1, participants)
+        self.assertIn(self.attendee2, participants)
+        self.assertNotIn(self.attendee3, participants)
+    
+    def test_chat_room_can_user_access(self):
+        """Test chat room access control."""
+        chat_room = ChatRoom.objects.create(event=self.event)
+        
+        # Attendee with paid order can access
+        self.assertTrue(chat_room.can_user_access(self.attendee1))
+        
+        # Attendee without order cannot access
+        self.assertFalse(chat_room.can_user_access(self.attendee3))
+        
+        # Organizer cannot access
+        self.assertFalse(chat_room.can_user_access(self.organizer))
+        
+        # Anonymous user cannot access
+        anonymous = User()
+        self.assertFalse(chat_room.can_user_access(anonymous))
+    
+    def test_multiple_attendees_can_chat(self):
+        """Test that multiple attendees can send messages in the same chat room."""
+        chat_room = ChatRoom.objects.create(event=self.event)
+        
+        # Attendee1 sends message
+        self.client.login(username='attendee1', password='testpass123')
+        url = reverse('home.send_message', args=[self.event.id])
+        self.client.post(url, {'content': 'Message from attendee1'})
+        
+        # Attendee2 sends message
+        self.client.login(username='attendee2', password='testpass123')
+        self.client.post(url, {'content': 'Message from attendee2'})
+        
+        # Both messages should exist
+        self.assertEqual(Message.objects.filter(chat_room=chat_room).count(), 2)
+        self.assertTrue(Message.objects.filter(sender=self.attendee1).exists())
+        self.assertTrue(Message.objects.filter(sender=self.attendee2).exists())
+    
+    def test_chat_room_shows_participant_count(self):
+        """Test that chat room shows correct participant count."""
+        self.client.login(username='attendee1', password='testpass123')
+        url = reverse('home.chat_room_detail', args=[self.event.id])
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, 200)
+        # Should show 2 participants (attendee1 and attendee2)
+        self.assertContains(response, '2 Participant')

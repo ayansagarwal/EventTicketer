@@ -20,4 +20,9 @@ urlpatterns = [
     path('cart/add/<int:event_id>/', views.add_to_cart, name='home.add_to_cart'),
     path('cart/remove/<int:item_id>/', views.remove_from_cart, name='home.remove_from_cart'),
     path('cart/update/<int:item_id>/', views.update_cart_quantity, name='home.update_cart_quantity'),
+    # Chat URLs
+    path('chat/', views.chat_rooms, name='home.chat_rooms'),
+    path('chat/<int:event_id>/', views.chat_room_detail, name='home.chat_room_detail'),
+    path('chat/<int:event_id>/send/', views.send_message, name='home.send_message'),
+    path('chat/<int:event_id>/api/', views.chat_messages_api, name='home.chat_messages_api'),
 ]
