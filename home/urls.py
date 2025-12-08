@@ -25,4 +25,9 @@ urlpatterns = [
     path('chat/<int:event_id>/', views.chat_room_detail, name='home.chat_room_detail'),
     path('chat/<int:event_id>/send/', views.send_message, name='home.send_message'),
     path('chat/<int:event_id>/api/', views.chat_messages_api, name='home.chat_messages_api'),
+    # Admin/Moderation URLs
+    path('admin/moderation/', views.admin_event_moderation, name='home.admin_event_moderation'),
+    path('admin/moderation/<int:event_id>/', views.admin_event_review, name='home.admin_event_review'),
+    path('admin/moderation/<int:event_id>/approve/', views.admin_approve_event, name='home.admin_approve_event'),
+    path('admin/moderation/<int:event_id>/reject/', views.admin_reject_event, name='home.admin_reject_event'),
 ]

@@ -1,0 +1,187 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<header class="masthead bg-admin-moderation-header text-white text-center py-5 mb-4">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto">
+                <h1 class="display-4 fw-bold mb-3" style="text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);">
+                    <i class="fas fa-shield-alt me-3"></i>Event Moderation
+                </h1>
+                <p class="lead">Review and manage event submissions</p>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="container mb-5">
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card text-center border-primary">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">Pending</h5>
+                    <h2 class="mb-0">{{ stats.pending }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card text-center border-success">
+                <div class="card-body">
+                    <h5 class="card-title text-success">Approved</h5>
+                    <h2 class="mb-0">{{ stats.approved }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card text-center border-danger">
+                <div class="card-body">
+                    <h5 class="card-title text-danger">Rejected</h5>
+                    <h2 class="mb-0">{{ stats.rejected }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card text-center border-info">
+                <div class="card-body">
+                    <h5 class="card-title text-info">Total</h5>
+                    <h2 class="mb-0">{{ stats.total }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <a class="nav-link {% if status_filter == 'pending' %}active{% endif %}" href="{% url 'home.admin_event_moderation' %}?status=pending">
+                Pending Review <span class="badge bg-warning text-dark ms-1">{{ stats.pending }}</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if status_filter == 'approved' %}active{% endif %}" href="{% url 'home.admin_event_moderation' %}?status=approved">
+                Approved <span class="badge bg-success ms-1">{{ stats.approved }}</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if status_filter == 'rejected' %}active{% endif %}" href="{% url 'home.admin_event_moderation' %}?status=rejected">
+                Rejected <span class="badge bg-danger ms-1">{{ stats.rejected }}</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if status_filter == 'all' %}active{% endif %}" href="{% url 'home.admin_event_moderation' %}?status=all">
+                All Events
+            </a>
+        </li>
+    </ul>
+
+    <!-- Events List -->
+    {% if events %}
+    <div class="table-responsive shadow-sm rounded-3">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Event</th>
+                    <th>Organizer</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Submitted</th>
+                    {% if status_filter != 'pending' %}
+                    <th>Moderated By</th>
+                    <th>Moderated At</th>
+                    {% endif %}
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for event in events %}
+                <tr>
+                    <td>
+                        <strong>{{ event.title }}</strong>
+                        <div class="text-muted small">{{ event.venue }}</div>
+                    </td>
+                    <td>{{ event.organizer.get_full_name|default:event.organizer.username }}</td>
+                    <td>{{ event.date|date:"M d, Y" }}<br><small class="text-muted">{{ event.time|time:"g:i A" }}</small></td>
+                    <td>
+                        {% if event.moderation_status == 'pending' %}
+                            <span class="badge bg-warning text-dark">Pending</span>
+                        {% elif event.moderation_status == 'approved' %}
+                            <span class="badge bg-success">Approved</span>
+                        {% elif event.moderation_status == 'rejected' %}
+                            <span class="badge bg-danger">Rejected</span>
+                        {% endif %}
+                    </td>
+                    <td><small>{{ event.created_at|date:"M d, Y g:i A" }}</small></td>
+                    {% if status_filter != 'pending' %}
+                    <td>
+                        {% if event.moderated_by %}
+                            {{ event.moderated_by.get_full_name|default:event.moderated_by.username }}
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if event.moderated_at %}
+                            <small>{{ event.moderated_at|date:"M d, Y g:i A" }}</small>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                    <td>
+                        <a href="{% url 'home.admin_event_review' event.id %}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-eye me-1"></i>Review
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <div class="mb-4">
+            <i class="fas fa-inbox fa-4x text-muted mb-3" style="opacity: 0.5;"></i>
+        </div>
+        <h4 class="text-muted mb-2 fw-semibold">No Events Found</h4>
+        <p class="text-muted">
+            {% if status_filter == 'pending' %}
+                There are no events pending review.
+            {% elif status_filter == 'approved' %}
+                No events have been approved yet.
+            {% elif status_filter == 'rejected' %}
+                No events have been rejected.
+            {% else %}
+                No events found.
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.bg-admin-moderation-header {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    background-attachment: fixed;
+    background-size: cover;
+    border-radius: 0 0 20px 20px;
+}
+
+.nav-tabs .nav-link {
+    color: #495057;
+}
+
+.nav-tabs .nav-link.active {
+    color: #dc3545;
+    border-color: #dc3545 #dc3545 #fff;
+    font-weight: 600;
+}
+
+.table th {
+    white-space: nowrap;
+    font-weight: 600;
+}
+</style>
+{% endblock %}
+

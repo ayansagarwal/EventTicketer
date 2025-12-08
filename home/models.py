@@ -4,6 +4,12 @@ from django.contrib.auth.models import User
 # Create your models here.
 
 class Event(models.Model):
+    MODERATION_STATUS_CHOICES = [
+        ('pending', 'Pending Review'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    
     title = models.CharField(max_length=200)
     description = models.TextField()
     date = models.DateField()
@@ -17,12 +23,59 @@ class Event(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_published = models.BooleanField(default=True)
+    moderation_status = models.CharField(
+        max_length=20,
+        choices=MODERATION_STATUS_CHOICES,
+        default='pending',
+        help_text='Status of event moderation review'
+    )
+    moderation_notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text='Admin notes about moderation decision'
+    )
+    moderated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='moderated_events',
+        help_text='Administrator who reviewed this event'
+    )
+    moderated_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:
         ordering = ['-created_at']
     
     def __str__(self):
         return self.title
+    
+    @property
+    def is_approved(self):
+        """Check if event is approved and published."""
+        return self.moderation_status == 'approved' and self.is_published
+    
+    def approve(self, moderator, notes=''):
+        """Approve the event."""
+        from django.utils import timezone
+        self.moderation_status = 'approved'
+        self.is_published = True
+        self.moderated_by = moderator
+        self.moderated_at = timezone.now()
+        if notes:
+            self.moderation_notes = notes
+        self.save(update_fields=['moderation_status', 'is_published', 'moderated_by', 'moderated_at', 'moderation_notes'])
+    
+    def reject(self, moderator, notes=''):
+        """Reject the event."""
+        from django.utils import timezone
+        self.moderation_status = 'rejected'
+        self.is_published = False
+        self.moderated_by = moderator
+        self.moderated_at = timezone.now()
+        if notes:
+            self.moderation_notes = notes
+        self.save(update_fields=['moderation_status', 'is_published', 'moderated_by', 'moderated_at', 'moderation_notes'])
 
 
 class Order(models.Model):

@@ -1,0 +1,215 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<header class="masthead bg-admin-review-header text-white text-center py-4 mb-4">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-10 mx-auto">
+                <h1 class="display-5 fw-bold mb-2" style="text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);">
+                    <i class="fas fa-clipboard-check me-2"></i>Review Event
+                </h1>
+                <p class="lead mb-0">{{ event.title }}</p>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="container mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Status Alert -->
+            <div class="alert alert-{% if event.moderation_status == 'pending' %}warning{% elif event.moderation_status == 'approved' %}success{% else %}danger{% endif %} mb-4" role="alert">
+                <strong>Status:</strong> 
+                {% if event.moderation_status == 'pending' %}
+                    <span class="badge bg-warning text-dark">Pending Review</span>
+                {% elif event.moderation_status == 'approved' %}
+                    <span class="badge bg-success">Approved</span>
+                    {% if event.moderated_by %}
+                        by {{ event.moderated_by.get_full_name|default:event.moderated_by.username }} on {{ event.moderated_at|date:"M d, Y g:i A" }}
+                    {% endif %}
+                {% elif event.moderation_status == 'rejected' %}
+                    <span class="badge bg-danger">Rejected</span>
+                    {% if event.moderated_by %}
+                        by {{ event.moderated_by.get_full_name|default:event.moderated_by.username }} on {{ event.moderated_at|date:"M d, Y g:i A" }}
+                    {% endif %}
+                {% endif %}
+            </div>
+
+            <div class="card shadow-lg border-0 event-review-card">
+                <div class="card-body p-5">
+                    <!-- Event Details -->
+                    <div class="event-details">
+                        <div class="detail-section mb-4">
+                            <h5 class="fw-bold mb-3 text-primary">
+                                <i class="fas fa-align-left me-2"></i>Description
+                            </h5>
+                            <p class="lead text-muted">{{ event.description }}</p>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6 mb-3">
+                                <div class="detail-box">
+                                    <i class="fas fa-calendar-alt me-2 text-primary"></i>
+                                    <strong>Date:</strong> {{ event.date|date:"F d, Y" }}
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="detail-box">
+                                    <i class="fas fa-clock me-2 text-primary"></i>
+                                    <strong>Time:</strong> {{ event.time|time:"g:i A" }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="detail-section mb-4">
+                            <div class="detail-box">
+                                <i class="fas fa-map-marker-alt me-2 text-primary"></i>
+                                <strong>Venue:</strong> {{ event.venue }}
+                            </div>
+                        </div>
+
+                        {% if event.latitude and event.longitude %}
+                        <div class="detail-section mb-4">
+                            <h5 class="fw-bold mb-3 text-primary">
+                                <i class="fas fa-map me-2"></i>Event Location
+                            </h5>
+                            <div class="text-muted small">
+                                Coordinates: {{ event.latitude }}, {{ event.longitude }}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <div class="row mb-4">
+                            <div class="col-md-6 mb-3">
+                                <div class="detail-box">
+                                    <i class="fas fa-dollar-sign me-2 text-success"></i>
+                                    <strong>Ticket Price:</strong> ${{ event.ticket_price }}
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="detail-box">
+                                    <i class="fas fa-ticket-alt me-2 text-success"></i>
+                                    <strong>Tickets Available:</strong> {{ event.ticket_availability }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="detail-section mb-4">
+                            <div class="detail-box">
+                                <i class="fas fa-user me-2 text-secondary"></i>
+                                <strong>Organizer:</strong> {{ event.organizer.get_full_name|default:event.organizer.username }} ({{ event.organizer.username }})
+                            </div>
+                        </div>
+
+                        <div class="detail-section mb-4">
+                            <div class="detail-box">
+                                <i class="fas fa-clock me-2 text-secondary"></i>
+                                <strong>Submitted:</strong> {{ event.created_at|date:"F d, Y g:i A" }}
+                            </div>
+                        </div>
+
+                        {% if event.moderation_notes %}
+                        <div class="detail-section mb-4">
+                            <h5 class="fw-bold mb-3 text-info">
+                                <i class="fas fa-sticky-note me-2"></i>Moderation Notes
+                            </h5>
+                            <div class="alert alert-info">
+                                {{ event.moderation_notes }}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Moderation Actions -->
+                    {% if event.moderation_status == 'pending' %}
+                    <div class="mt-4 pt-4 border-top">
+                        <h5 class="fw-bold mb-3">Moderation Actions</h5>
+                        
+                        <!-- Approve Form -->
+                        <form method="post" action="{% url 'home.admin_approve_event' event.id %}" class="mb-3">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label for="approve_notes" class="form-label">Approval Notes (Optional)</label>
+                                <textarea class="form-control" id="approve_notes" name="notes" rows="3" placeholder="Add any notes about this approval..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fas fa-check me-2"></i>Approve Event
+                            </button>
+                        </form>
+
+                        <!-- Reject Form -->
+                        <form method="post" action="{% url 'home.admin_reject_event' event.id %}">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label for="reject_notes" class="form-label">Rejection Reason <span class="text-danger">*</span></label>
+                                <textarea class="form-control" id="reject_notes" name="notes" rows="3" placeholder="Please provide a reason for rejection..." required></textarea>
+                                <small class="form-text text-muted">Rejection reason is required.</small>
+                            </div>
+                            <button type="submit" class="btn btn-danger btn-lg">
+                                <i class="fas fa-times me-2"></i>Reject Event
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="text-center mt-4">
+                <a href="{% url 'home.admin_event_moderation' %}" class="btn btn-outline-secondary btn-lg rounded-pill px-4">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Moderation
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-admin-review-header {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    background-attachment: fixed;
+    background-size: cover;
+    border-radius: 0 0 20px 20px;
+}
+
+.event-review-card {
+    border-radius: 20px;
+    background: linear-gradient(to bottom, #ffffff 0%, #f8f9fa 100%);
+}
+
+.detail-section {
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.detail-section:last-of-type {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.detail-box {
+    padding: 1rem 1.25rem;
+    background: linear-gradient(to right, #f8f9fa 0%, #ffffff 100%);
+    border-radius: 12px;
+    border-left: 4px solid #dc3545;
+    transition: all 0.3s ease;
+}
+
+.detail-box:hover {
+    transform: translateX(5px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    border: none;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    border: none;
+}
+</style>
+{% endblock %}
+

@@ -613,3 +613,334 @@ class ChatTests(TestCase):
         self.assertEqual(response.status_code, 200)
         # Should show 2 participants (attendee1 and attendee2)
         self.assertContains(response, '2 Participant')
+
+
+class EventModerationTests(TestCase):
+    """Test cases for event moderation functionality."""
+    
+    def setUp(self):
+        """Set up test data for moderation tests."""
+        # Create administrator
+        self.admin = User.objects.create_user(
+            username='admin',
+            email='admin@test.com',
+            password='testpass123',
+            first_name='Admin',
+            last_name='User'
+        )
+        self.admin.userprofile.user_type = 'administrator'
+        self.admin.userprofile.save()
+        
+        # Create organizer
+        self.organizer = User.objects.create_user(
+            username='organizer',
+            email='org@test.com',
+            password='testpass123'
+        )
+        self.organizer.userprofile.user_type = 'event_organizer'
+        self.organizer.userprofile.save()
+        
+        # Create attendee
+        self.attendee = User.objects.create_user(
+            username='attendee',
+            email='att@test.com',
+            password='testpass123'
+        )
+        self.attendee.userprofile.user_type = 'attendee'
+        self.attendee.userprofile.save()
+        
+        # Create pending event
+        self.pending_event = Event.objects.create(
+            title='Pending Event',
+            description='This event is pending review',
+            date=date(2024, 12, 25),
+            time=time(19, 0),
+            venue='Test Venue',
+            ticket_price=Decimal('50.00'),
+            ticket_availability=100,
+            organizer=self.organizer,
+            is_published=False,
+            moderation_status='pending'
+        )
+        
+        # Create approved event
+        self.approved_event = Event.objects.create(
+            title='Approved Event',
+            description='This event is approved',
+            date=date(2024, 12, 26),
+            time=time(20, 0),
+            venue='Test Venue 2',
+            ticket_price=Decimal('75.00'),
+            ticket_availability=50,
+            organizer=self.organizer,
+            is_published=True,
+            moderation_status='approved'
+        )
+        
+        # Create rejected event
+        self.rejected_event = Event.objects.create(
+            title='Rejected Event',
+            description='This event was rejected',
+            date=date(2024, 12, 27),
+            time=time(21, 0),
+            venue='Test Venue 3',
+            ticket_price=Decimal('100.00'),
+            ticket_availability=25,
+            organizer=self.organizer,
+            is_published=False,
+            moderation_status='rejected',
+            moderation_notes='Inappropriate content'
+        )
+        
+        self.client = Client()
+    
+    def test_create_event_sets_pending_status(self):
+        """Test that new events are created with pending status."""
+        self.client.login(username='organizer', password='testpass123')
+        url = reverse('home.create_event')
+        
+        response = self.client.post(url, {
+            'title': 'New Test Event',
+            'description': 'Test description',
+            'date': '2024-12-30',
+            'time': '18:00',
+            'venue': 'Test Venue',
+            'ticket_price': '50.00',
+            'ticket_availability': '100',
+        })
+        
+        self.assertEqual(response.status_code, 302)  # Redirect after creation
+        event = Event.objects.get(title='New Test Event')
+        self.assertEqual(event.moderation_status, 'pending')
+        self.assertFalse(event.is_published)
+    
+    def test_pending_events_not_visible_to_public(self):
+        """Test that pending events are not visible in public listings."""
+        url = reverse('home.index')
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, 200)
+        events = response.context['events']
+        # Should only see approved events
+        self.assertNotIn(self.pending_event, events)
+        self.assertIn(self.approved_event, events)
+        self.assertNotIn(self.rejected_event, events)
+    
+    def test_admin_moderation_requires_login(self):
+        """Test that admin moderation page requires login."""
+        url = reverse('home.admin_event_moderation')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)  # Redirect to login
+    
+    def test_admin_moderation_requires_admin_role(self):
+        """Test that only administrators can access moderation."""
+        # Try as organizer
+        self.client.login(username='organizer', password='testpass123')
+        url = reverse('home.admin_event_moderation')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)  # Redirect with error
+        
+        # Try as attendee
+        self.client.login(username='attendee', password='testpass123')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)  # Redirect with error
+    
+    def test_admin_can_access_moderation(self):
+        """Test that administrator can access moderation page."""
+        # Refresh admin user to ensure userprofile is loaded
+        self.admin.refresh_from_db()
+        self.assertEqual(self.admin.userprofile.user_type, 'administrator')
+        
+        self.client.login(username='admin', password='testpass123')
+        url = reverse('home.admin_event_moderation')
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Event Moderation')
+        self.assertContains(response, self.pending_event.title)
+    
+    def test_admin_moderation_shows_pending_events(self):
+        """Test that moderation page shows pending events."""
+        self.client.login(username='admin', password='testpass123')
+        url = reverse('home.admin_event_moderation')
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, 200)
+        events = response.context['events']
+        self.assertIn(self.pending_event, events)
+        self.assertEqual(events.count(), 1)  # Only pending events by default
+    
+    def test_admin_moderation_filter_by_status(self):
+        """Test filtering events by moderation status."""
+        self.client.login(username='admin', password='testpass123')
+        
+        # Test approved filter
+        url = reverse('home.admin_event_moderation') + '?status=approved'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        events = response.context['events']
+        self.assertIn(self.approved_event, events)
+        self.assertNotIn(self.pending_event, events)
+        
+        # Test rejected filter
+        url = reverse('home.admin_event_moderation') + '?status=rejected'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        events = response.context['events']
+        self.assertIn(self.rejected_event, events)
+        self.assertNotIn(self.pending_event, events)
+    
+    def test_admin_event_review_page(self):
+        """Test that admin can view event review page."""
+        self.client.login(username='admin', password='testpass123')
+        url = reverse('home.admin_event_review', args=[self.pending_event.id])
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.pending_event.title)
+        self.assertContains(response, 'Review Event')
+    
+    def test_approve_event_requires_admin(self):
+        """Test that only admin can approve events."""
+        # Try as organizer
+        self.client.login(username='organizer', password='testpass123')
+        url = reverse('home.admin_approve_event', args=[self.pending_event.id])
+        response = self.client.post(url, {'notes': ''})
+        self.assertEqual(response.status_code, 302)  # Redirect with error
+    
+    def test_approve_event_updates_status(self):
+        """Test that approving an event updates its status."""
+        self.client.login(username='admin', password='testpass123')
+        url = reverse('home.admin_approve_event', args=[self.pending_event.id])
+        response = self.client.post(url, {'notes': 'Looks good!'})
+        
+        self.assertEqual(response.status_code, 302)  # Redirect after approval
+        self.pending_event.refresh_from_db()
+        self.assertEqual(self.pending_event.moderation_status, 'approved')
+        self.assertTrue(self.pending_event.is_published)
+        self.assertEqual(self.pending_event.moderated_by, self.admin)
+        self.assertIsNotNone(self.pending_event.moderated_at)
+        self.assertEqual(self.pending_event.moderation_notes, 'Looks good!')
+    
+    def test_approve_event_makes_visible(self):
+        """Test that approved events become visible to public."""
+        self.client.login(username='admin', password='testpass123')
+        url = reverse('home.admin_approve_event', args=[self.pending_event.id])
+        self.client.post(url, {'notes': ''})
+        
+        # Check public listing
+        self.client.logout()
+        public_url = reverse('home.index')
+        response = self.client.get(public_url)
+        events = response.context['events']
+        self.pending_event.refresh_from_db()
+        self.assertIn(self.pending_event, events)
+    
+    def test_reject_event_requires_admin(self):
+        """Test that only admin can reject events."""
+        # Try as organizer
+        self.client.login(username='organizer', password='testpass123')
+        url = reverse('home.admin_reject_event', args=[self.pending_event.id])
+        response = self.client.post(url, {'notes': 'Spam'})
+        self.assertEqual(response.status_code, 302)  # Redirect with error
+    
+    def test_reject_event_requires_notes(self):
+        """Test that rejecting an event requires notes."""
+        self.client.login(username='admin', password='testpass123')
+        url = reverse('home.admin_reject_event', args=[self.pending_event.id])
+        response = self.client.post(url, {'notes': ''})
+        
+        # Should redirect back with error
+        self.assertEqual(response.status_code, 302)
+        self.pending_event.refresh_from_db()
+        self.assertEqual(self.pending_event.moderation_status, 'pending')  # Still pending
+    
+    def test_reject_event_updates_status(self):
+        """Test that rejecting an event updates its status."""
+        self.client.login(username='admin', password='testpass123')
+        url = reverse('home.admin_reject_event', args=[self.pending_event.id])
+        response = self.client.post(url, {'notes': 'Inappropriate content'})
+        
+        self.assertEqual(response.status_code, 302)  # Redirect after rejection
+        self.pending_event.refresh_from_db()
+        self.assertEqual(self.pending_event.moderation_status, 'rejected')
+        self.assertFalse(self.pending_event.is_published)
+        self.assertEqual(self.pending_event.moderated_by, self.admin)
+        self.assertIsNotNone(self.pending_event.moderated_at)
+        self.assertEqual(self.pending_event.moderation_notes, 'Inappropriate content')
+    
+    def test_reject_event_keeps_hidden(self):
+        """Test that rejected events remain hidden from public."""
+        self.client.login(username='admin', password='testpass123')
+        url = reverse('home.admin_reject_event', args=[self.pending_event.id])
+        self.client.post(url, {'notes': 'Spam'})
+        
+        # Check public listing
+        self.client.logout()
+        public_url = reverse('home.index')
+        response = self.client.get(public_url)
+        events = response.context['events']
+        self.pending_event.refresh_from_db()
+        self.assertNotIn(self.pending_event, events)
+    
+    def test_event_approve_method(self):
+        """Test Event.approve() method."""
+        self.pending_event.approve(self.admin, 'Test approval notes')
+        
+        self.assertEqual(self.pending_event.moderation_status, 'approved')
+        self.assertTrue(self.pending_event.is_published)
+        self.assertEqual(self.pending_event.moderated_by, self.admin)
+        self.assertIsNotNone(self.pending_event.moderated_at)
+        self.assertEqual(self.pending_event.moderation_notes, 'Test approval notes')
+    
+    def test_event_reject_method(self):
+        """Test Event.reject() method."""
+        self.pending_event.reject(self.admin, 'Test rejection notes')
+        
+        self.assertEqual(self.pending_event.moderation_status, 'rejected')
+        self.assertFalse(self.pending_event.is_published)
+        self.assertEqual(self.pending_event.moderated_by, self.admin)
+        self.assertIsNotNone(self.pending_event.moderated_at)
+        self.assertEqual(self.pending_event.moderation_notes, 'Test rejection notes')
+    
+    def test_event_is_approved_property(self):
+        """Test Event.is_approved property."""
+        # Approved and published
+        self.assertTrue(self.approved_event.is_approved)
+        
+        # Pending
+        self.assertFalse(self.pending_event.is_approved)
+        
+        # Rejected
+        self.assertFalse(self.rejected_event.is_approved)
+        
+        # Approved but not published
+        self.approved_event.is_published = False
+        self.approved_event.save()
+        self.assertFalse(self.approved_event.is_approved)
+    
+    def test_moderation_statistics(self):
+        """Test that moderation page shows correct statistics."""
+        self.client.login(username='admin', password='testpass123')
+        url = reverse('home.admin_event_moderation')
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, 200)
+        stats = response.context['stats']
+        self.assertEqual(stats['pending'], 1)
+        self.assertEqual(stats['approved'], 1)
+        self.assertEqual(stats['rejected'], 1)
+        self.assertEqual(stats['total'], 3)
+    
+    def test_organizer_can_see_own_pending_events(self):
+        """Test that organizer can see their own pending events in 'My Events'."""
+        self.client.login(username='organizer', password='testpass123')
+        url = reverse('home.my_events')
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, 200)
+        events = response.context['events']
+        # Organizer should see all their events regardless of status
+        self.assertIn(self.pending_event, events)
+        self.assertIn(self.approved_event, events)
+        self.assertIn(self.rejected_event, events)

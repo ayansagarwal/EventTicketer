@@ -1,9 +1,10 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import JsonResponse
 from django.core.paginator import Paginator
 from decimal import Decimal, InvalidOperation
+from functools import wraps
 from .models import Event, Order, Cart, CartItem, ChatRoom, Message
 from .forms import EventForm
 
@@ -15,8 +16,8 @@ def index(request):
     template_data = {}
     template_data['title'] = 'Event Ticketer'
     
-    # Get all published events
-    events = Event.objects.filter(is_published=True)
+    # Get all approved and published events
+    events = Event.objects.filter(is_published=True, moderation_status='approved')
     
     # Apply filters from query parameters (for backward compatibility and server-side filtering)
     name_filter = request.GET.get('name', '').strip()
@@ -79,8 +80,10 @@ def create_event(request):
         if form.is_valid():
             event = form.save(commit=False)
             event.organizer = request.user
+            event.moderation_status = 'pending'
+            event.is_published = False  # Events need approval before being published
             event.save()
-            messages.success(request, 'Event created successfully!')
+            messages.success(request, 'Event submitted successfully! It will be reviewed by an administrator before being published.')
             return redirect('home.event_detail', event_id=event.id)
     else:
         form = EventForm()
@@ -247,9 +250,10 @@ def events_map(request):
         messages.error(request, 'Only Event Attendees can view the events map.')
         return redirect('home.index')
     
-    # Get all published events that have coordinates
+    # Get all approved and published events that have coordinates
     events = Event.objects.filter(
         is_published=True,
+        moderation_status='approved',
         latitude__isnull=False,
         longitude__isnull=False
     )
@@ -271,8 +275,8 @@ def events_api(request):
     - page: Page number for pagination (default: 1)
     - page_size: Number of items per page (default: 10, max: 100)
     """
-    # Get all published events
-    events = Event.objects.filter(is_published=True)
+    # Get all approved and published events
+    events = Event.objects.filter(is_published=True, moderation_status='approved')
     
     # Extract and validate query parameters
     name_filter = request.GET.get('name', '').strip()
@@ -682,3 +686,100 @@ def chat_messages_api(request, event_id):
         'event_id': event.id,
         'event_title': event.title,
     })
+
+# Admin/Moderation Views
+
+def admin_required(view_func):
+    """Decorator to ensure user is an administrator."""
+    @wraps(view_func)
+    @login_required
+    def _wrapped_view(request, *args, **kwargs):
+        if not hasattr(request.user, 'userprofile'):
+            messages.error(request, 'User profile not found.')
+            return redirect('home.index')
+        if request.user.userprofile.user_type != 'administrator':
+            messages.error(request, 'Only Administrators can access this page.')
+            return redirect('home.index')
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view
+
+@admin_required
+def admin_event_moderation(request):
+    """
+    Display all events pending moderation review.
+    """
+    status_filter = request.GET.get('status', 'pending')
+    
+    if status_filter == 'all':
+        events = Event.objects.all().select_related('organizer', 'moderated_by').order_by('-created_at')
+    elif status_filter == 'approved':
+        events = Event.objects.filter(moderation_status='approved').select_related('organizer', 'moderated_by').order_by('-moderated_at', '-created_at')
+    elif status_filter == 'rejected':
+        events = Event.objects.filter(moderation_status='rejected').select_related('organizer', 'moderated_by').order_by('-moderated_at', '-created_at')
+    else:
+        events = Event.objects.filter(moderation_status='pending').select_related('organizer', 'moderated_by').order_by('-created_at')
+    
+    # Count statistics
+    stats = {
+        'pending': Event.objects.filter(moderation_status='pending').count(),
+        'approved': Event.objects.filter(moderation_status='approved').count(),
+        'rejected': Event.objects.filter(moderation_status='rejected').count(),
+        'total': Event.objects.count(),
+    }
+    
+    template_data = {'title': 'Event Moderation'}
+    return render(request, 'home/admin_event_moderation.html', {
+        'template_data': template_data,
+        'events': events,
+        'status_filter': status_filter,
+        'stats': stats,
+    })
+
+@admin_required
+def admin_event_review(request, event_id):
+    """
+    Display event details for moderation review.
+    """
+    event = get_object_or_404(Event, id=event_id)
+    
+    template_data = {'title': f'Review Event - {event.title}'}
+    return render(request, 'home/admin_event_review.html', {
+        'template_data': template_data,
+        'event': event,
+    })
+
+@admin_required
+def admin_approve_event(request, event_id):
+    """
+    Approve an event submission.
+    """
+    event = get_object_or_404(Event, id=event_id)
+    
+    if request.method != 'POST':
+        return redirect('home.admin_event_review', event_id=event.id)
+    
+    notes = request.POST.get('notes', '').strip()
+    event.approve(request.user, notes)
+    
+    messages.success(request, f'Event "{event.title}" has been approved and published.')
+    return redirect('home.admin_event_moderation')
+
+@admin_required
+def admin_reject_event(request, event_id):
+    """
+    Reject an event submission.
+    """
+    event = get_object_or_404(Event, id=event_id)
+    
+    if request.method != 'POST':
+        return redirect('home.admin_event_review', event_id=event.id)
+    
+    notes = request.POST.get('notes', '').strip()
+    if not notes:
+        messages.error(request, 'Please provide a reason for rejection.')
+        return redirect('home.admin_event_review', event_id=event.id)
+    
+    event.reject(request.user, notes)
+    
+    messages.success(request, f'Event "{event.title}" has been rejected.')
+    return redirect('home.admin_event_moderation')

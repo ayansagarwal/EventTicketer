@@ -9,6 +9,7 @@ class UserProfile(models.Model):
     USER_TYPE_CHOICES = [
         ('attendee', 'Attendee'),
         ('event_organizer', 'Event Organizer'),
+        ('administrator', 'Administrator'),
     ]
     
     user = models.OneToOneField(User, on_delete=models.CASCADE)
