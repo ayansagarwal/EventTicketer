@@ -3,10 +3,13 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import JsonResponse
 from django.core.paginator import Paginator
+from django.db.models import Q
 from decimal import Decimal, InvalidOperation
 from functools import wraps
 from .models import Event, Order, Cart, CartItem, ChatRoom, Message
-from .forms import EventForm
+from .forms import EventForm, UserRoleForm
+from django.contrib.auth.models import User
+from user_accounts.models import UserProfile
 
 def index(request):
     """
@@ -827,3 +830,111 @@ def admin_reject_event(request, event_id):
     
     messages.success(request, f'Event "{event.title}" has been rejected.')
     return redirect('home.admin_event_moderation')
+
+# Admin User Management Views
+
+@admin_required
+def admin_user_management(request):
+    """
+    Display all users with filtering and search capabilities.
+    """
+    users = User.objects.all().select_related('userprofile').order_by('-date_joined')
+    
+    # Filter by user type
+    user_type_filter = request.GET.get('user_type', '').strip()
+    if user_type_filter:
+        users = users.filter(userprofile__user_type=user_type_filter)
+    
+    # Search by username, email, or name
+    search_query = request.GET.get('search', '').strip()
+    if search_query:
+        users = users.filter(
+            Q(username__icontains=search_query) |
+            Q(email__icontains=search_query) |
+            Q(first_name__icontains=search_query) |
+            Q(last_name__icontains=search_query)
+        )
+    
+    # Count statistics
+    stats = {
+        'total': User.objects.count(),
+        'attendees': UserProfile.objects.filter(user_type='attendee').count(),
+        'organizers': UserProfile.objects.filter(user_type='event_organizer').count(),
+        'administrators': UserProfile.objects.filter(user_type='administrator').count(),
+    }
+    
+    template_data = {'title': 'User Management'}
+    return render(request, 'home/admin_user_management.html', {
+        'template_data': template_data,
+        'users': users,
+        'user_type_filter': user_type_filter,
+        'search_query': search_query,
+        'stats': stats,
+    })
+
+@admin_required
+def admin_user_detail(request, user_id):
+    """
+    Display detailed information about a user and allow role management.
+    """
+    user = get_object_or_404(User, id=user_id)
+    
+    # Get user statistics
+    events_organized = Event.objects.filter(organizer=user).count()
+    orders_placed = Order.objects.filter(attendee=user).count()
+    total_spent = sum(order.total_price for order in Order.objects.filter(attendee=user, status='paid'))
+    tickets_purchased = sum(order.quantity for order in Order.objects.filter(attendee=user, status='paid'))
+    
+    # Get recent activity
+    recent_events = Event.objects.filter(organizer=user).order_by('-created_at')[:5]
+    recent_orders = Order.objects.filter(attendee=user).select_related('event').order_by('-created_at')[:5]
+    
+    template_data = {'title': f'User Details - {user.username}'}
+    return render(request, 'home/admin_user_detail.html', {
+        'template_data': template_data,
+        'user': user,
+        'events_organized': events_organized,
+        'orders_placed': orders_placed,
+        'total_spent': total_spent,
+        'tickets_purchased': tickets_purchased,
+        'recent_events': recent_events,
+        'recent_orders': recent_orders,
+    })
+
+@admin_required
+def admin_user_edit_role(request, user_id):
+    """
+    Allow administrators to change a user's role.
+    """
+    user = get_object_or_404(User, id=user_id)
+    
+    # Prevent administrators from changing their own role
+    if user == request.user:
+        messages.error(request, 'You cannot change your own role.')
+        return redirect('home.admin_user_detail', user_id=user.id)
+    
+    if not hasattr(user, 'userprofile'):
+        messages.error(request, 'User profile not found.')
+        return redirect('home.admin_user_management')
+    
+    if request.method == 'POST':
+        form = UserRoleForm(request.POST, instance=user.userprofile)
+        if form.is_valid():
+            old_role_display = user.userprofile.get_user_type_display()
+            form.save()
+            new_role_display = user.userprofile.get_user_type_display()
+            
+            messages.success(
+                request,
+                f'User "{user.username}" role changed from {old_role_display} to {new_role_display}.'
+            )
+            return redirect('home.admin_user_detail', user_id=user.id)
+    else:
+        form = UserRoleForm(instance=user.userprofile)
+    
+    template_data = {'title': f'Edit Role - {user.username}'}
+    return render(request, 'home/admin_user_edit_role.html', {
+        'template_data': template_data,
+        'form': form,
+        'user': user,
+    })

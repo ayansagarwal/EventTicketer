@@ -1,0 +1,287 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<header class="masthead bg-admin-user-detail-header text-white text-center py-4 mb-4">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-10 mx-auto">
+                <h1 class="display-5 fw-bold mb-2" style="text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);">
+                    <i class="fas fa-user-circle me-2"></i>{{ user.get_full_name|default:user.username }}
+                </h1>
+                <p class="lead mb-0">
+                    <span class="badge bg-light text-dark me-2">@{{ user.username }}</span>
+                    {% if user.userprofile.user_type == 'attendee' %}
+                        <span class="badge bg-primary">Attendee</span>
+                    {% elif user.userprofile.user_type == 'event_organizer' %}
+                        <span class="badge bg-success">Event Organizer</span>
+                    {% elif user.userprofile.user_type == 'administrator' %}
+                        <span class="badge bg-warning text-dark">Administrator</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="container mb-5">
+    <div class="row">
+        <!-- User Information Card -->
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-lg border-0 h-100">
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <div class="avatar-large mx-auto mb-3">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <h4 class="mb-1">{{ user.get_full_name|default:user.username }}</h4>
+                        <p class="text-muted mb-0">@{{ user.username }}</p>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="user-info-section">
+                        <h6 class="fw-bold text-primary mb-3">
+                            <i class="fas fa-info-circle me-2"></i>Account Information
+                        </h6>
+                        
+                        <div class="info-item mb-3">
+                            <small class="text-muted d-block">Email</small>
+                            <strong>{{ user.email|default:"Not provided" }}</strong>
+                        </div>
+                        
+                        <div class="info-item mb-3">
+                            <small class="text-muted d-block">Role</small>
+                            <strong>{{ user.userprofile.get_user_type_display }}</strong>
+                        </div>
+                        
+                        <div class="info-item mb-3">
+                            <small class="text-muted d-block">Account Status</small>
+                            {% if user.is_active %}
+                                <span class="badge bg-success">Active</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="info-item mb-3">
+                            <small class="text-muted d-block">Date Joined</small>
+                            <strong>{{ user.date_joined|date:"F d, Y" }}</strong>
+                        </div>
+                        
+                        <div class="info-item mb-3">
+                            <small class="text-muted d-block">Last Login</small>
+                            <strong>
+                                {% if user.last_login %}
+                                    {{ user.last_login|date:"F d, Y g:i A" }}
+                                {% else %}
+                                    Never
+                                {% endif %}
+                            </strong>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="d-grid gap-2">
+                        {% if user != request.user %}
+                        <a href="{% url 'home.admin_user_edit_role' user.id %}" class="btn btn-warning">
+                            <i class="fas fa-edit me-2"></i>Edit Role
+                        </a>
+                        {% else %}
+                        <button class="btn btn-secondary" disabled>
+                            <i class="fas fa-lock me-2"></i>Cannot Edit Own Role
+                        </button>
+                        {% endif %}
+                        <a href="{% url 'home.admin_user_management' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Users
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Statistics and Activity -->
+        <div class="col-md-8">
+            <!-- Statistics Cards -->
+            <div class="row mb-4">
+                <div class="col-md-6 mb-3">
+                    <div class="card text-center border-primary h-100">
+                        <div class="card-body">
+                            <i class="fas fa-calendar-check fa-2x text-primary mb-2"></i>
+                            <h5 class="card-title text-primary">Events Organized</h5>
+                            <h2 class="mb-0">{{ events_organized }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="card text-center border-success h-100">
+                        <div class="card-body">
+                            <i class="fas fa-shopping-cart fa-2x text-success mb-2"></i>
+                            <h5 class="card-title text-success">Orders Placed</h5>
+                            <h2 class="mb-0">{{ orders_placed }}</h2>
+                        </div>
+                    </div>
+                </div>
+                {% if user.userprofile.user_type == 'attendee' %}
+                <div class="col-md-6 mb-3">
+                    <div class="card text-center border-info h-100">
+                        <div class="card-body">
+                            <i class="fas fa-ticket-alt fa-2x text-info mb-2"></i>
+                            <h5 class="card-title text-info">Tickets Purchased</h5>
+                            <h2 class="mb-0">{{ tickets_purchased }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="card text-center border-warning h-100">
+                        <div class="card-body">
+                            <i class="fas fa-dollar-sign fa-2x text-warning mb-2"></i>
+                            <h5 class="card-title text-warning">Total Spent</h5>
+                            <h2 class="mb-0">${{ total_spent|floatformat:2 }}</h2>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Recent Activity -->
+            <div class="row">
+                {% if user.userprofile.user_type == 'event_organizer' or user.userprofile.user_type == 'administrator' %}
+                <div class="col-12 mb-4">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-calendar me-2"></i>Recent Events Organized
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if recent_events %}
+                            <div class="list-group list-group-flush">
+                                {% for event in recent_events %}
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h6 class="mb-1">{{ event.title }}</h6>
+                                            <p class="mb-1 text-muted small">{{ event.venue }}</p>
+                                            <small class="text-muted">
+                                                {{ event.date|date:"M d, Y" }} at {{ event.time|time:"g:i A" }}
+                                            </small>
+                                        </div>
+                                        <div>
+                                            {% if event.moderation_status == 'pending' %}
+                                                <span class="badge bg-warning text-dark">Pending</span>
+                                            {% elif event.moderation_status == 'approved' %}
+                                                <span class="badge bg-success">Approved</span>
+                                            {% elif event.moderation_status == 'rejected' %}
+                                                <span class="badge bg-danger">Rejected</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted mb-0">No events organized yet.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if user.userprofile.user_type == 'attendee' %}
+                <div class="col-12 mb-4">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-shopping-bag me-2"></i>Recent Orders
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if recent_orders %}
+                            <div class="list-group list-group-flush">
+                                {% for order in recent_orders %}
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h6 class="mb-1">{{ order.event.title }}</h6>
+                                            <p class="mb-1 text-muted small">
+                                                Quantity: {{ order.quantity }} × ${{ order.unit_price }} = ${{ order.total_price }}
+                                            </p>
+                                            <small class="text-muted">
+                                                {{ order.created_at|date:"M d, Y g:i A" }}
+                                            </small>
+                                        </div>
+                                        <div>
+                                            {% if order.status == 'paid' %}
+                                                <span class="badge bg-success">Paid</span>
+                                            {% elif order.status == 'pending' %}
+                                                <span class="badge bg-warning text-dark">Pending</span>
+                                            {% elif order.status == 'cancelled' %}
+                                                <span class="badge bg-danger">Cancelled</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted mb-0">No orders placed yet.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-admin-user-detail-header {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    background-attachment: fixed;
+    background-size: cover;
+    border-radius: 0 0 20px 20px;
+}
+
+.avatar-large {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 3rem;
+}
+
+.user-info-section {
+    padding: 0.5rem 0;
+}
+
+.info-item {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.info-item:last-child {
+    border-bottom: none;
+}
+
+.card {
+    border-radius: 12px;
+}
+
+.list-group-item {
+    border-left: none;
+    border-right: none;
+}
+
+.list-group-item:first-child {
+    border-top: none;
+}
+</style>
+{% endblock %}
+

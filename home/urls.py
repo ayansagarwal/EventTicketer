@@ -31,4 +31,8 @@ urlpatterns = [
     path('admin/moderation/<int:event_id>/', views.admin_event_review, name='home.admin_event_review'),
     path('admin/moderation/<int:event_id>/approve/', views.admin_approve_event, name='home.admin_approve_event'),
     path('admin/moderation/<int:event_id>/reject/', views.admin_reject_event, name='home.admin_reject_event'),
+    # Admin User Management URLs
+    path('admin/users/', views.admin_user_management, name='home.admin_user_management'),
+    path('admin/users/<int:user_id>/', views.admin_user_detail, name='home.admin_user_detail'),
+    path('admin/users/<int:user_id>/edit-role/', views.admin_user_edit_role, name='home.admin_user_edit_role'),
 ]

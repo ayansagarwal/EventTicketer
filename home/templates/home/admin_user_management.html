@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<header class="masthead bg-admin-users-header text-white text-center py-5 mb-4">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto">
+                <h1 class="display-4 fw-bold mb-3" style="text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);">
+                    <i class="fas fa-users-cog me-3"></i>User Management
+                </h1>
+                <p class="lead">Manage users and their roles to keep the platform fair and safe</p>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="container mb-5">
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card text-center border-info">
+                <div class="card-body">
+                    <h5 class="card-title text-info">Total Users</h5>
+                    <h2 class="mb-0">{{ stats.total }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card text-center border-primary">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">Attendees</h5>
+                    <h2 class="mb-0">{{ stats.attendees }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card text-center border-success">
+                <div class="card-body">
+                    <h5 class="card-title text-success">Organizers</h5>
+                    <h2 class="mb-0">{{ stats.organizers }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card text-center border-warning">
+                <div class="card-body">
+                    <h5 class="card-title text-warning">Administrators</h5>
+                    <h2 class="mb-0">{{ stats.administrators }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search and Filter Section -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" action="{% url 'home.admin_user_management' %}" class="row g-3">
+                <div class="col-md-6">
+                    <label for="search" class="form-label">Search Users</label>
+                    <input type="text" class="form-control" id="search" name="search" 
+                           value="{{ search_query }}" placeholder="Search by username, email, or name">
+                </div>
+                <div class="col-md-4">
+                    <label for="user_type" class="form-label">Filter by Role</label>
+                    <select class="form-select" id="user_type" name="user_type">
+                        <option value="">All Roles</option>
+                        <option value="attendee" {% if user_type_filter == 'attendee' %}selected{% endif %}>Attendee</option>
+                        <option value="event_organizer" {% if user_type_filter == 'event_organizer' %}selected{% endif %}>Event Organizer</option>
+                        <option value="administrator" {% if user_type_filter == 'administrator' %}selected{% endif %}>Administrator</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-1"></i>Search
+                    </button>
+                </div>
+            </form>
+            {% if search_query or user_type_filter %}
+            <div class="mt-2">
+                <a href="{% url 'home.admin_user_management' %}" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-times me-1"></i>Clear Filters
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Users List -->
+    {% if users %}
+    <div class="table-responsive shadow-sm rounded-3">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Joined</th>
+                    <th>Last Login</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-circle me-2">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div>
+                                <strong>{{ user.get_full_name|default:user.username }}</strong>
+                                <div class="text-muted small">@{{ user.username }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>{{ user.email|default:"-" }}</td>
+                    <td>
+                        {% if user.userprofile.user_type == 'attendee' %}
+                            <span class="badge bg-primary">Attendee</span>
+                        {% elif user.userprofile.user_type == 'event_organizer' %}
+                            <span class="badge bg-success">Event Organizer</span>
+                        {% elif user.userprofile.user_type == 'administrator' %}
+                            <span class="badge bg-warning text-dark">Administrator</span>
+                        {% endif %}
+                    </td>
+                    <td><small>{{ user.date_joined|date:"M d, Y" }}</small></td>
+                    <td>
+                        {% if user.last_login %}
+                            <small>{{ user.last_login|date:"M d, Y g:i A" }}</small>
+                        {% else %}
+                            <span class="text-muted">Never</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if user.is_active %}
+                            <span class="badge bg-success">Active</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'home.admin_user_detail' user.id %}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-eye me-1"></i>View
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <div class="mb-4">
+            <i class="fas fa-users fa-4x text-muted mb-3" style="opacity: 0.5;"></i>
+        </div>
+        <h4 class="text-muted mb-2 fw-semibold">No Users Found</h4>
+        <p class="text-muted">
+            {% if search_query or user_type_filter %}
+                No users match your search criteria. Try adjusting your filters.
+            {% else %}
+                No users found in the system.
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.bg-admin-users-header {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    background-attachment: fixed;
+    background-size: cover;
+    border-radius: 0 0 20px 20px;
+}
+
+.avatar-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.1rem;
+}
+
+.table th {
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.card {
+    border-radius: 12px;
+}
+</style>
+{% endblock %}
+

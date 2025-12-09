@@ -1,5 +1,6 @@
 from django import forms
 from .models import Event
+from user_accounts.models import UserProfile
 
 class EventForm(forms.ModelForm):
     class Meta:
@@ -53,5 +54,20 @@ class EventForm(forms.ModelForm):
             'ticket_price': 'Ticket Price',
             'ticket_availability': 'Number of Tickets Available',
             'is_published': 'Publish Event'
+        }
+
+
+class UserRoleForm(forms.ModelForm):
+    """Form for administrators to manage user roles."""
+    class Meta:
+        model = UserProfile
+        fields = ['user_type']
+        widgets = {
+            'user_type': forms.Select(attrs={
+                'class': 'form-select',
+            })
+        }
+        labels = {
+            'user_type': 'User Role',
         }
 
