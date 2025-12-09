@@ -8,6 +8,7 @@ urlpatterns = [
     path('events/<int:event_id>/edit/', views.edit_event, name='home.edit_event'),
     path('events/<int:event_id>/buy/', views.buy_ticket, name='home.buy_ticket'),
     path('events/my-events/', views.my_events, name='home.my_events'),
+    path('dashboard/', views.dashboard, name='home.dashboard'),
     path('orders/my-orders/', views.my_orders, name='home.my_orders'),
     # API endpoint for event search/filtering with JSON response
     path('events/api/', views.events_api, name='home.events_api'),

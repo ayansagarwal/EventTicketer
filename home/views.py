@@ -178,6 +178,50 @@ def my_events(request):
     })
 
 @login_required
+def dashboard(request):
+    """
+    Display dashboard with ticket sales and revenue for event organizers.
+    """
+    if not hasattr(request.user, 'userprofile') or request.user.userprofile.user_type != 'event_organizer':
+        messages.error(request, 'Only Event Organizers can view this page.')
+        return redirect('home.index')
+    
+    # Get all events organized by this user
+    events = Event.objects.filter(organizer=request.user)
+    
+    # Get all paid orders for these events
+    orders = Order.objects.filter(
+        event__organizer=request.user,
+        status='paid'
+    ).select_related('event')
+    
+    # Calculate total ticket sales
+    total_tickets_sold = sum(order.quantity for order in orders)
+    
+    # Calculate total revenue
+    total_revenue = sum(order.total_price for order in orders)
+    
+    # Get per-event statistics
+    event_stats = []
+    for event in events:
+        event_orders = orders.filter(event=event)
+        event_tickets_sold = sum(order.quantity for order in event_orders)
+        event_revenue = sum(order.total_price for order in event_orders)
+        event_stats.append({
+            'event': event,
+            'tickets_sold': event_tickets_sold,
+            'revenue': event_revenue,
+        })
+    
+    template_data = {'title': 'Dashboard'}
+    return render(request, 'home/dashboard.html', {
+        'template_data': template_data,
+        'total_tickets_sold': total_tickets_sold,
+        'total_revenue': total_revenue,
+        'event_stats': event_stats,
+    })
+
+@login_required
 def my_orders(request):
     """
     Show a list of orders for the logged-in attendee so they can track

@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- Hero Section -->
+<header class="masthead bg-dashboard-header text-white text-center py-5 mb-4">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto">
+                <h1 class="display-4 fw-bold mb-3" style="text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);">
+                    <i class="fas fa-chart-line me-3"></i>Dashboard
+                </h1>
+                <p class="lead">Track your event's performance</p>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="container mb-5">
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-6 mb-3">
+            <div class="card shadow-sm h-100 dashboard-card">
+                <div class="card-body text-center p-4">
+                    <div class="mb-3">
+                        <i class="fas fa-ticket-alt fa-3x text-primary"></i>
+                    </div>
+                    <h3 class="fw-bold mb-2">{{ total_tickets_sold }}</h3>
+                    <p class="text-muted mb-0">Total Tickets Sold</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <div class="card shadow-sm h-100 dashboard-card">
+                <div class="card-body text-center p-4">
+                    <div class="mb-3">
+                        <i class="fas fa-dollar-sign fa-3x text-success"></i>
+                    </div>
+                    <h3 class="fw-bold mb-2">${{ total_revenue|floatformat:2 }}</h3>
+                    <p class="text-muted mb-0">Total Revenue</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Event Breakdown -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h4 class="fw-bold mb-0">
+                        <i class="fas fa-list me-2 text-primary"></i>Event Performance
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% if event_stats %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Event</th>
+                                        <th class="text-center">Tickets Sold</th>
+                                        <th class="text-end">Revenue</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for stat in event_stats %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'home.event_detail' stat.event.id %}" class="text-decoration-none">
+                                                {{ stat.event.title }}
+                                            </a>
+                                        </td>
+                                        <td class="text-center">{{ stat.tickets_sold }}</td>
+                                        <td class="text-end">${{ stat.revenue|floatformat:2 }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-chart-bar fa-3x text-muted mb-3" style="opacity: 0.5;"></i>
+                            <p class="text-muted">No sales data available yet.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-dashboard-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-attachment: fixed;
+    background-size: cover;
+    border-radius: 0 0 20px 20px;
+}
+
+.bg-dashboard-header h1 {
+    animation: fadeInDown 0.6s ease-out;
+}
+
+.bg-dashboard-header .lead {
+    animation: fadeInUp 0.6s ease-out 0.2s both;
+    opacity: 0.95;
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 0.95;
+        transform: translateY(0);
+    }
+}
+
+.dashboard-card {
+    border: none;
+    border-radius: 15px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    background: #ffffff;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+}
+
+.card {
+    border-radius: 15px;
+    border: none;
+}
+
+.table {
+    margin-bottom: 0;
+}
+
+.table thead th {
+    border-bottom: 2px solid #e9ecef;
+    font-weight: 600;
+    color: #495057;
+}
+
+.table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+@media (max-width: 768px) {
+    .bg-dashboard-header h1 {
+        font-size: 2rem;
+    }
+}
+</style>
+
+{% endblock %}
+

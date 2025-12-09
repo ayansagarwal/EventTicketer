@@ -31,6 +31,9 @@
                   <i class="fas fa-shield-alt me-1"></i>Moderation
                 </a>
               {% elif user.userprofile.user_type == 'event_organizer' %}
+                <a class="nav-link" href="{% url 'home.dashboard' %}">
+                  <i class="fas fa-chart-line me-1"></i>Dashboard
+                </a>
                 <a class="nav-link" href="{% url 'home.create_event' %}">Create Event</a>
                 <a class="nav-link" href="{% url 'home.my_events' %}">My Events</a>
               {% elif user.userprofile.user_type == 'attendee' %}
